@@ -16,7 +16,7 @@ Small, user-facing "pace-control" popups for the DeepSeek Harness (dsh). Each do
 | [`dsh-plugin-crosslens`](packages/crosslens) | A cross-discipline draw: pick or randomize a field, and get a hook that looks at your current topic through another discipline's eyes. |
 | [`dsh-plugin-jiyibi`](packages/jiyibi) | "Mark a note" (记一笔): jot, in your own words, what a moment meant to you. It snapshots that moment's question-and-answer into a searchable personal ledger that outlives the session. |
 | [`dsh-plugin-pace-hub`](packages/pace-hub) | The floating bar that hosts the tools above and toggles each on or off. Mounts on the app-global `shell.overlay` slot. |
-| [`dsh-pace-popups`](packages/suite) | The bundle — add this one package to mount the whole set. |
+| [`dsh-pace-popups`](packages/suite) | The bundle. Its `cordis.patch.yml` is the canonical mount list for the whole set (and would be the one-command install target if published to npm). |
 
 ## Screenshots
 
@@ -41,21 +41,30 @@ The user-driven tools open from the bar:
 
 ## Install
 
+`dsh` resolves plugins by installed package identity, so install the four plugins from this repo into your profile. (A one-command `dsh plugin add dsh-pace-popups` via the bundle would require the packages on npm, which this project doesn't publish — install from source instead.)
+
 ```sh
-dsh plugin --profile web add dsh-pace-popups
+# 1. clone
+git clone https://github.com/xiayuhkust/dsh-pace-popups
+cd dsh-pace-popups
+
+# 2. add the four plugins to your dsh profile (run from this repo root)
+dsh plugin --profile web add \
+  ./packages/grasp-probe \
+  ./packages/crosslens \
+  ./packages/jiyibi \
+  ./packages/pace-hub
 ```
 
-Restart `dsh web`. A floating bar appears; open it for the tools, or switch any off. `dsh --profile web --dump-config` confirms the rows.
+3. Mount them: copy the four `- insert:` rows from [`packages/suite/cordis.patch.yml`](packages/suite/cordis.patch.yml) into your profile's `cordis.patch.yml`.
 
-> Status: not yet published to npm. Until then, install from source (below).
+Restart `dsh web`. A floating bar appears (bottom-right); open it for the tools, or switch any off. `dsh --profile web --dump-config` confirms the rows.
 
-## From source
-
-This is a pnpm workspace. Clone it, then point your dsh profile at the packages you want — either add the bundle, or add the four plugins individually — and mount them in the profile's `cordis.patch.yml`. Each package is an independent `dsh-plugin-*` unit, so you can also take just one.
+Want just one? Add only that package in step 2 and its single row in step 3 — each is an independent `dsh-plugin-*` unit.
 
 ## Conventions
 
-- One npm package per plugin, prefixed `dsh-plugin-*`; the `dsh-pace-popups` bundle mounts the set. The repo carries the `dsh-plugin` GitHub topic.
+- One package per plugin, prefixed `dsh-plugin-*`; the `dsh-pace-popups` bundle collects them. The repo carries the `dsh-plugin` GitHub topic.
 - Plugins are zero-build, hand-written client factories; `react` / `slots` / `connection` are platform externals, and they take no `@deepseek-ai/dsh-*` imports.
 - Data flows over each plugin's in-memory Connection RPC channel; the session log is never written.
 

@@ -16,7 +16,7 @@
 | [`dsh-plugin-crosslens`](packages/crosslens) | 跨学科抽卡:选或随机一个学科,给当前话题一个"用别的学科的眼睛看"的线头。 |
 | [`dsh-plugin-jiyibi`](packages/jiyibi) | 记一笔:用你自己的话,写下某一刻它对你意味着什么。标记那刻把当时的问答快照进一个可检索、活过会话的私人账本。 |
 | [`dsh-plugin-pace-hub`](packages/pace-hub) | 承载上面这些工具、并逐个开关它们的浮条。挂在 app 级的 `shell.overlay` 槽。 |
-| [`dsh-pace-popups`](packages/suite) | 套件 bundle——只装这一个包,即挂上全套。 |
+| [`dsh-pace-popups`](packages/suite) | 套件 bundle。它的 `cordis.patch.yml` 是全套的标准挂载清单(若发布到 npm,也就是一键装全套的目标)。 |
 
 ## 截图
 
@@ -41,21 +41,30 @@
 
 ## 安装
 
+dsh 按"已安装的包身份"解析插件,所以把本仓的四个插件装进你的 profile 即可。(想用套件 bundle 一条命令 `dsh plugin add dsh-pace-popups` 装全套,需要包发布在 npm 上,本项目不发 npm——请照下面从源码装。)
+
 ```sh
-dsh plugin --profile web add dsh-pace-popups
+# 1. 克隆
+git clone https://github.com/xiayuhkust/dsh-pace-popups
+cd dsh-pace-popups
+
+# 2. 把四个插件加进 dsh profile(在本仓根目录里运行)
+dsh plugin --profile web add \
+  ./packages/grasp-probe \
+  ./packages/crosslens \
+  ./packages/jiyibi \
+  ./packages/pace-hub
 ```
 
-重启 `dsh web`。浮条出现;点开取用工具,或把某个关掉。`dsh --profile web --dump-config` 可确认插件行已在。
+3. 挂载:把 [`packages/suite/cordis.patch.yml`](packages/suite/cordis.patch.yml) 里的四行 `- insert:` 复制进你 profile 的 `cordis.patch.yml`。
 
-> 状态:尚未发布到 npm。在此之前,从源码安装(见下)。
+重启 `dsh web`。右下角出现一条浮条;点开取用工具,或把某个关掉。`dsh --profile web --dump-config` 可确认插件行已在。
 
-## 从源码
-
-本仓是一个 pnpm workspace。克隆后,把你的 dsh profile 指向想要的包——或加套件 bundle,或单独加那四个插件——并在 profile 的 `cordis.patch.yml` 里挂载。每个包都是独立的 `dsh-plugin-*` 单元,你也可以只取其一。
+只想要其中一个?第 2 步只加那一个包、第 3 步只加它那一行即可——每个都是独立的 `dsh-plugin-*` 单元。
 
 ## 约定
 
-- 每个插件一个独立 npm 包,前缀 `dsh-plugin-*`;`dsh-pace-popups` bundle 负责一次挂全套。仓库打 `dsh-plugin` GitHub topic。
+- 每个插件一个独立包,前缀 `dsh-plugin-*`;`dsh-pace-popups` bundle 把它们收拢在一起。仓库打 `dsh-plugin` GitHub topic。
 - 插件是零构建、手写的客户端工厂;`react` / `slots` / `connection` 是平台 external,且不 import 任何 `@deepseek-ai/dsh-*`。
 - 数据走各插件自己的内存态 Connection RPC 通道;绝不写会话日志。
 
