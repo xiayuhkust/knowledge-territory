@@ -8,11 +8,8 @@ INTEGRATION.md
 **/INTEGRATION.md
 design/
 
-# grasp-probe 的开发/标定/模拟脚本:已完成使命,非运行时;留本地不公开(用户 2026-08-19 定)
-packages/grasp-probe/src/adapt-cc-session.mjs
-packages/grasp-probe/src/live-sim.mjs
-packages/grasp-probe/src/rider-experiment.mjs
-packages/grasp-probe/src/run-window.mjs
+# 截图原始转储(微信命名):只发 docs/ 里挑好的
+image/
 
 # 日志 / 临时
 *.log
