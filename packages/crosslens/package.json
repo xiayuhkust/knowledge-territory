@@ -1,0 +1,26 @@
+{
+  "name": "dsh-plugin-crosslens",
+  "version": "0.1.0",
+  "description": "Cross-disciplinary association popup for DeepSeek Harness: pick the disciplines you care about, then draw a card — the LLM offers one concrete structural link between another field and what you're currently working on. A tool for thought (a hook, never a finished analysis), surfaced faint and ignorable over an in-memory Connection RPC channel, never the session log.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "connection-rpc", "cross-disciplinary", "lateral-thinking", "pace-popups"],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "*"
+  },
+  "scripts": {
+    "test": "node src/crosslens.test.mjs"
+  }
+}

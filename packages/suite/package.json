@@ -1,0 +1,24 @@
+{
+  "name": "dsh-pace-popups",
+  "version": "0.1.0",
+  "description": "One-install bundle for the 节奏弹窗 / pace-popups suite: mounts grasp-probe, crosslens, jiyibi, and the pace-hub floating bar together. Add this one package to get them all; switch any off in the hub. A dsh bundle (dsh.bundle.patch → cordis.patch.yml).",
+  "type": "module",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": ["cordis.patch.yml"],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "dsh-plugin-grasp-probe": "workspace:*",
+    "dsh-plugin-crosslens": "workspace:*",
+    "dsh-plugin-jiyibi": "workspace:*",
+    "dsh-plugin-pace-hub": "workspace:*"
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "pace-popups", "bundle", "suite"]
+}

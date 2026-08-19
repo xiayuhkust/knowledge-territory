@@ -1,0 +1,26 @@
+{
+  "name": "dsh-plugin-grasp-probe",
+  "version": "0.1.0",
+  "description": "Verification-gap probe for DeepSeek Harness: a backend plugin that watches each user turn, judges steer/ride/neutral with a cheap LLM, and accumulates how far the AI's autonomous progress has outrun what the user has actually verified — surfacing a faint, ignorable prompt (over an in-memory Connection RPC channel, never the session log) when they've drifted out of grasp.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "connection-rpc", "situation-awareness", "automation-complacency", "pace-popups"],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "*"
+  },
+  "scripts": {
+    "test": "node src/grasp-live.mjs && node src/probe-loop.test.mjs"
+  }
+}

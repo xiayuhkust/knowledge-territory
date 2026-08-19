@@ -1,0 +1,10 @@
+{
+  "name": "pace-popups-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "节奏弹窗 / pace-popups — small, user-facing pace-control popups for the DeepSeek Harness (dsh). Install the dsh-pace-popups bundle once and get the set; toggle any off in the floating hub.",
+  "scripts": {
+    "test": "pnpm -r --if-present test"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,23 @@
+{
+  "name": "dsh-plugin-jiyibi",
+  "version": "0.1.0",
+  "description": "记一笔 — meaning-marking popup for DeepSeek Harness: like e-book marginalia, jot in your own words what a moment meant to you. Each mark snapshots the moment (immune to context compaction) into a searchable personal ledger that outlives any session. The AI keeps the log; you keep what mattered. A tool for thought, never written for you, over an in-memory Connection RPC channel + a plugin-owned durable file — never the session log.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "connection-rpc", "annotation", "marginalia", "pace-popups"],
+  "scripts": {
+    "test": "node src/jiyibi.test.mjs"
+  }
+}

@@ -1,0 +1,12 @@
+# deps 由 profile/包管理器提供(本仓 node_modules 是指向 profile 库的软链,不入库)
+node_modules/
+
+# 日志 / 临时
+*.log
+*.tmp
+
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

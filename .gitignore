@@ -1,0 +1,23 @@
+# deps
+node_modules/
+
+# 内部设计文档:留在本地供参考,不公开(用户 2026-08-19 定)
+BRAINSTORM.md
+INTEGRATION.md
+**/BRAINSTORM.md
+**/INTEGRATION.md
+design/
+
+# 日志 / 临时
+*.log
+*.tmp
+sim_tmp.mjs
+
+# 账本落在用户 homedir,不在本仓;兜一层
+*.jsonl
+
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

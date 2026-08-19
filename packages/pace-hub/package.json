@@ -1,0 +1,20 @@
+{
+  "name": "dsh-plugin-pace-hub",
+  "version": "0.1.0",
+  "description": "节奏台 — a floating overlay hub for the pace-popups series. A draggable, position-persisted bar mounted on the app-global shell.overlay slot; v1a manages which pace popups (grasp / crosslens / jiyibi) are shown via a shared localStorage flag the popups honor live. Later versions host richer panels (记一笔 ledger browsing + read-only re-read). Zero-build hand-written client; no backend state in v1a.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "pace-popups", "overlay", "shell-overlay", "hub", "floating"]
+}
