@@ -99,6 +99,31 @@ window.__ModuleLoader__.load({
       '历史学': 'History', '经济史': 'Economic History', '思想史': 'Intellectual History', '科技史': 'History of Science & Tech',
       '艺术': 'Art', '音乐': 'Music', '建筑': 'Architecture', '绘画': 'Painting', '叙事': 'Narrative',
       '未登陆': 'Frontier',
+      // —— 维基五分支 + 扩库(2026-08 按 Outline of academic disciplines 铺开)——
+      '形式科学': 'Formal Sciences', '自然科学': 'Natural Sciences', '社会科学': 'Social Sciences',
+      '人文学科': 'Humanities', '应用科学': 'Applied Sciences', '自建': 'Custom',
+      '几何': 'Geometry',
+      '统计学': 'Statistics', '贝叶斯统计': 'Bayesian Statistics', '实验设计': 'Experimental Design', '因果推断': 'Causal Inference', '时间序列': 'Time Series',
+      '人机交互': 'Human-Computer Interaction', '粒子物理': 'Particle Physics',
+      '化学': 'Chemistry', '有机化学': 'Organic Chemistry', '无机化学': 'Inorganic Chemistry', '物理化学': 'Physical Chemistry', '生物化学': 'Biochemistry', '材料化学': 'Materials Chemistry',
+      '天文学': 'Astronomy', '宇宙学': 'Cosmology', '行星科学': 'Planetary Science', '天体物理': 'Astrophysics', '系外行星': 'Exoplanets',
+      '地球科学': 'Earth Science', '地质学': 'Geology', '气象学': 'Meteorology', '海洋学': 'Oceanography', '古气候学': 'Paleoclimatology',
+      '遗传学': 'Genetics', '微生物学': 'Microbiology',
+      '发展经济学': 'Development Economics', '人格心理': 'Personality Psychology', '城市社会学': 'Urban Sociology',
+      '政治学': 'Political Science', '国际关系': 'International Relations', '比较政治': 'Comparative Politics', '公共政策': 'Public Policy', '政治哲学': 'Political Philosophy',
+      '人类学': 'Anthropology', '文化人类学': 'Cultural Anthropology', '考古学': 'Archaeology', '语言人类学': 'Linguistic Anthropology',
+      '社会语言学': 'Sociolinguistics',
+      '地理学': 'Geography', '人文地理': 'Human Geography', '自然地理': 'Physical Geography', '地图学': 'Cartography', '地理信息系统': 'GIS',
+      '传播学': 'Communication', '新闻学': 'Journalism', '媒介研究': 'Media Studies', '传播理论': 'Communication Theory',
+      '心灵哲学': 'Philosophy of Mind', '全球史': 'Global History',
+      '文学': 'Literature', '小说': 'Fiction', '诗歌': 'Poetry', '比较文学': 'Comparative Literature', '文学批评': 'Literary Criticism',
+      '电影': 'Film', '设计': 'Design',
+      '宗教学': 'Religious Studies', '比较宗教': 'Comparative Religion', '神学': 'Theology', '宗教社会学': 'Sociology of Religion',
+      '工程学': 'Engineering', '机械工程': 'Mechanical Engineering', '电子工程': 'Electrical Engineering', '材料科学': 'Materials Science', '控制工程': 'Control Engineering',
+      '医学与健康': 'Medicine & Health', '免疫学': 'Immunology', '流行病学': 'Epidemiology', '药理学': 'Pharmacology', '公共卫生': 'Public Health', '营养学': 'Nutrition',
+      '法学': 'Law', '法理学': 'Jurisprudence', '宪法': 'Constitutional Law', '刑法': 'Criminal Law', '国际法': 'International Law',
+      '教育学': 'Education', '学习科学': 'Learning Sciences', '教育心理': 'Educational Psychology', '课程论': 'Curriculum Theory',
+      '管理学': 'Management', '组织行为': 'Organizational Behavior', '战略': 'Strategy', '运营': 'Operations', '市场营销': 'Marketing',
     };
     var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
     var boundT = null, dictRegistered = false;
@@ -248,7 +273,10 @@ window.__ModuleLoader__.load({
 
 /* 学科总览：鲜艳色块 + 子学科 */
 .dsh-atlas-root .rail-top{border-bottom:1px solid var(--hair-soft);padding-bottom:10px;margin-bottom:4px}
-.dsh-atlas-root .overview{display:flex;flex-wrap:wrap;gap:7px;padding:2px 14px 4px}
+.dsh-atlas-root .overview{padding:2px 14px 4px}
+.dsh-atlas-root .ov-group{margin-bottom:11px}
+.dsh-atlas-root .ov-ghead{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);margin:2px 0 6px}
+.dsh-atlas-root .ov-grid{display:flex;flex-wrap:wrap;gap:7px}
 .dsh-atlas-root .ov-item{flex:1 1 44%;min-width:104px;border-radius:10px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .dsh-atlas-root .ov-name{font-family:var(--serif);font-weight:700;font-size:13px;letter-spacing:.5px}
 .dsh-atlas-root .ov-subs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
@@ -404,24 +432,51 @@ window.__ModuleLoader__.load({
       }
       function subTint(sub) { if (!sub) return 0; let h = 0; for (let i = 0; i < sub.length; i++) h = (h * 31 + sub.charCodeAt(i)) >>> 0; return (h % 7 - 3) * 4.5; }
 
-      // ── 学科总库（1 级学科 + 2 级学科）：知识疆域与跨学科抽卡共享的**同一套**学科结构 ──
-      // 总览面板即由它渲染；跨学科抽卡的 PRESETS 用其 1 级名对齐（见 crosslens/lib/client.js）。
-      const DISC_LIB = [
-        ["系统论", ["控制论", "复杂系统", "混沌理论", "反馈"]],
-        ["信息论", ["编码理论", "密码学", "数据压缩", "信道"]],
-        ["经济学", ["行为经济学", "博弈论", "宏观经济", "微观经济"]],
-        ["生物学", ["进化生物学", "生态学", "分子生物学", "神经生物"]],
-        ["哲学", ["认识论", "伦理学", "逻辑学", "形而上学"]],
-        ["心理学", ["认知心理", "社会心理", "发展心理"]],
-        ["物理学", ["热力学", "量子力学", "统计力学", "相对论"]],
-        ["数学", ["拓扑学", "概率论", "图论", "代数"]],
-        ["计算机科学", ["算法", "机器学习", "分布式系统", "编程语言"]],
-        ["神经科学", ["神经可塑性", "计算神经", "认知神经"]],
-        ["语言学", ["句法学", "语义学", "语用学"]],
-        ["社会学", ["社会网络", "组织理论", "阶层流动"]],
-        ["历史学", ["经济史", "思想史", "科技史"]],
-        ["艺术", ["音乐", "建筑", "绘画", "叙事"]],
+      // ── 学科总库：以 Wikipedia「Outline of academic disciplines」为骨架 ──
+      // 五分支(形式/自然/社会/人文/应用)→ 一级学科(大陆,取"学者以之为身份认同"的粒度)→ 二级学科(州)。
+      // 知识疆域与跨学科抽卡共享同一套结构;中文名是数据 key,英文显示名在 ATLAS_EN。
+      const DISC_GROUPS = [
+        ["形式科学", [
+          ["数学", ["代数", "几何", "拓扑学", "概率论", "图论"]],
+          ["统计学", ["贝叶斯统计", "实验设计", "因果推断", "时间序列"]],
+          ["计算机科学", ["算法", "机器学习", "分布式系统", "编程语言", "人机交互"]],
+          ["系统论", ["控制论", "复杂系统", "混沌理论", "反馈"]],
+          ["信息论", ["编码理论", "密码学", "数据压缩", "信道"]],
+        ]],
+        ["自然科学", [
+          ["物理学", ["热力学", "量子力学", "统计力学", "相对论", "粒子物理"]],
+          ["化学", ["有机化学", "无机化学", "物理化学", "生物化学", "材料化学"]],
+          ["天文学", ["宇宙学", "行星科学", "天体物理", "系外行星"]],
+          ["地球科学", ["地质学", "气象学", "海洋学", "古气候学"]],
+          ["生物学", ["进化生物学", "生态学", "分子生物学", "遗传学", "微生物学"]],
+          ["神经科学", ["神经可塑性", "计算神经", "认知神经"]],
+        ]],
+        ["社会科学", [
+          ["经济学", ["行为经济学", "博弈论", "宏观经济", "微观经济", "发展经济学"]],
+          ["心理学", ["认知心理", "社会心理", "发展心理", "人格心理"]],
+          ["社会学", ["社会网络", "组织理论", "阶层流动", "城市社会学"]],
+          ["政治学", ["国际关系", "比较政治", "公共政策", "政治哲学"]],
+          ["人类学", ["文化人类学", "考古学", "语言人类学"]],
+          ["语言学", ["句法学", "语义学", "语用学", "社会语言学"]],
+          ["地理学", ["人文地理", "自然地理", "地图学", "地理信息系统"]],
+          ["传播学", ["新闻学", "媒介研究", "传播理论"]],
+        ]],
+        ["人文学科", [
+          ["哲学", ["认识论", "伦理学", "逻辑学", "形而上学", "心灵哲学"]],
+          ["历史学", ["经济史", "思想史", "科技史", "全球史"]],
+          ["文学", ["小说", "诗歌", "比较文学", "文学批评"]],
+          ["艺术", ["音乐", "建筑", "绘画", "电影", "设计", "叙事"]],
+          ["宗教学", ["比较宗教", "神学", "宗教社会学"]],
+        ]],
+        ["应用科学", [
+          ["工程学", ["机械工程", "电子工程", "材料科学", "控制工程"]],
+          ["医学与健康", ["免疫学", "流行病学", "药理学", "公共卫生", "营养学"]],
+          ["法学", ["法理学", "宪法", "刑法", "国际法"]],
+          ["教育学", ["学习科学", "教育心理", "课程论"]],
+          ["管理学", ["组织行为", "战略", "运营", "市场营销"]],
+        ]],
       ];
+      const DISC_LIB = DISC_GROUPS.flatMap(g => g[1]);   // 平铺视图:选择器 / 分类兜底 / 颜色登记共用
       // 给总库里每个 1 级学科**登记稳定的地色**（前 5 个复用手调色 sys/info/…；其余按黄金角派生），
       // 令总览色块与地图大陆同色；此刻只登记，不落地图（order 起始为空 = 从 0 开始）。
       DISC_LIB.forEach((row, i) => {
@@ -1093,10 +1148,7 @@ window.__ModuleLoader__.load({
       }
       function renderOverview() {
         const ov = byId('overview'); if (!ov) return;
-        // 总库 1 级学科 + 用户自建（order 里名字不在总库的）
-        const names = DISC_LIB.map(r => r[0]);
-        order.forEach(k => { if (!names.includes(DISC[k].name)) names.push(DISC[k].name); });
-        ov.innerHTML = names.map(nm => {
+        function itemHtml(nm) {
           const k = regKeyByName(nm), d = k ? DISC[k] : null, opened = k && order.includes(k);
           const land = d ? d.land : [180, 184, 190];
           const dark = (land[0] * 299 + land[1] * 587 + land[2] * 114) / 1000 > 150;
@@ -1113,7 +1165,15 @@ window.__ModuleLoader__.load({
               return '<span class="' + (on ? 'on' : '') + '" data-d="' + esc(nm) + '" data-s="' + esc(s) + '" title="' + (on ? T('已在图上') : T('点击开辟这片州')) + '">' + (on ? '' : '＋ ') + esc(dN(s)) + '</span>';
             }).join('') + '</div>' : '') +
             newsub + '</div>';
-        }).join('');
+        }
+        // 按维基五分支分组;用户自建(order 里名字不在总库的)单列一组
+        const groups = DISC_GROUPS.map(g => [g[0], g[1].map(r => r[0])]);
+        const libNames = new Set(DISC_LIB.map(r => r[0]));
+        const custom = []; order.forEach(k => { if (!libNames.has(DISC[k].name)) custom.push(DISC[k].name); });
+        if (custom.length) groups.push(['自建', custom]);
+        ov.innerHTML = groups.map(g =>
+          '<div class="ov-group"><div class="ov-ghead">' + esc(T(g[0])) + '</div><div class="ov-grid">' + g[1].map(itemHtml).join('') + '</div></div>'
+        ).join('');
         const si = ov.querySelector('#ovSubNew');                  // 自建州输入：回车开辟、Esc 收起
         if (si) {
           si.focus();

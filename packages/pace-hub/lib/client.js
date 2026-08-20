@@ -90,6 +90,10 @@ window.__ModuleLoader__.load({
       '哲学': 'Philosophy', '心理学': 'Psychology', '物理学': 'Physics', '数学': 'Mathematics',
       '计算机科学': 'Computer Science', '神经科学': 'Neuroscience', '语言学': 'Linguistics', '社会学': 'Sociology',
       '历史学': 'History', '艺术': 'Art',
+      '统计学': 'Statistics', '化学': 'Chemistry', '天文学': 'Astronomy', '地球科学': 'Earth Science',
+      '政治学': 'Political Science', '人类学': 'Anthropology', '地理学': 'Geography', '传播学': 'Communication',
+      '文学': 'Literature', '宗教学': 'Religious Studies', '工程学': 'Engineering', '医学与健康': 'Medicine & Health',
+      '法学': 'Law', '教育学': 'Education', '管理学': 'Management',
     };
     var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
     var boundT = null, dictRegistered = false;
@@ -168,7 +172,14 @@ window.__ModuleLoader__.load({
 
     // ============ 跨学科抽卡 面板(移自 crosslens dock)============
     var DKEY = 'crosslens.disciplines';
-    var PRESETS = ['生态学', '经济学', '心理学', '物理学', '数学', '历史', '音乐', '建筑学', '生物学', '哲学'];
+    // 与知识疆域共享同一套学科总库(atlas DISC_LIB 的一级学科,维基学科大纲骨架);存储用中文名与疆域对齐。
+    var PRESETS = [
+      '数学', '统计学', '计算机科学', '系统论', '信息论',
+      '物理学', '化学', '天文学', '地球科学', '生物学', '神经科学',
+      '经济学', '心理学', '社会学', '政治学', '人类学', '语言学', '地理学', '传播学',
+      '哲学', '历史学', '文学', '艺术', '宗教学',
+      '工程学', '医学与健康', '法学', '教育学', '管理学',
+    ];
     // 「随机学科」池:精选的很细分/冷门学科,随机抽一个给用户新鲜感(零 token、即时;够大 so 少重复)。
     var NICHE = [
       '古生物学', '古气候学', '古地磁学', '孢粉学', '冰川学', '冻土学', '火山学', '矿物物理学', '陨石学', '天体生物学',
