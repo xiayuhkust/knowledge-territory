@@ -82,6 +82,22 @@ window.__ModuleLoader__.load({
       '开辟二级学科': 'opened as a state',
       '恢复疆域': 'restored from your territory',
       '退出知识疆域': 'Exit Knowledge Territory',
+      // —— 分享/导出 ——
+      '分享': 'Share',
+      '分享疆域': 'Share your territory',
+      '导出前请过目：下面就是将要分享出去的全部内容。': 'Look it over first — everything below is what will be shared.',
+      '{0} 块大陆 · {1} 座城 · {2} 座桥 · {3} 条链接': '{0} continents · {1} cities · {2} bridges · {3} links',
+      '桥 · 连接的理由': 'Bridges · why they connect',
+      '（还没有桥）': '(no bridges yet)',
+      '大陆与城': 'Continents & cities',
+      '导出网页': 'Export web page',
+      '导出图片': 'Export image',
+      '疆域还是白海——先开辟一块大陆，或安置一座桥。': 'The territory is still open sea — found a continent or place a bridge first.',
+      '已导出图片': 'Image exported',
+      '已导出网页 —— 双击就能打开，发给朋友也一样': 'Web page exported — double-click to open, or send it to a friend as is',
+      '导出失败': 'Export failed',
+      '点击地图可在「适应宽度 / 原始大小」间切换': 'Click the map to toggle fit-width / actual size',
+      '由知识疆域生成': 'Made with Knowledge Territory',
       // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
       //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
       '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
@@ -328,6 +344,13 @@ window.__ModuleLoader__.load({
 .dsh-atlas-root .bp-back:hover{border-color:var(--gold);color:var(--ink)}
 .dsh-atlas-root .bp-add{display:flex;gap:6px;align-items:center;margin-bottom:10px}
 .dsh-atlas-root .bp-add .chipin{flex:1;width:auto}
+/* 分享/导出预览（隐私闸：全部内容尽收眼底再确认） */
+.dsh-atlas-root .ex-stats{font-family:var(--mono);font-size:12px;color:var(--ink-dim);margin-bottom:2px}
+.dsh-atlas-root .ex-sec{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);margin:14px 0 7px}
+.dsh-atlas-root .ex-b{border:1px solid var(--hair-soft);border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:12.5px}
+.dsh-atlas-root .ex-b .ex-l{color:var(--ink-dim);font-size:12px;line-height:1.55;margin-top:5px;padding-left:9px;border-left:2px solid var(--hair-soft);white-space:pre-wrap;word-break:break-word}
+.dsh-atlas-root .ex-c{font-size:12.5px;line-height:1.8}
+.dsh-atlas-root .ex-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
 @media (max-width:820px){.dsh-atlas-root .rail{width:280px}.dsh-atlas-root .brand .sub{display:none}}
 @media (prefers-reduced-motion:reduce){.dsh-atlas-root *{animation-duration:.001ms!important;transition-duration:.05ms!important}}
 .dsh-atlas-root :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -359,6 +382,7 @@ window.__ModuleLoader__.load({
       <div class="stat"><b id="rConn">—</b><span>${T('你点亮的链接')}</span></div>
       <div class="stat bridge"><b id="rBridge">—</b><span>${T('打通的学科对')}</span></div>
       <div class="stat"><b id="rFront">—</b><span>${T('待安置的连接')}</span></div>
+      <button id="shareBtn" class="mini" style="align-self:center">${T('分享')}</button>
     </div>
   </header>
 
@@ -1184,6 +1208,201 @@ window.__ModuleLoader__.load({
         }
       }
 
+      // ── 分享/导出：自包含单文件网页（快照图 + 桥的游记 + 内嵌 JSON 备份）+ PNG。
+      //    导出前必经预览弹窗——把将要分享出去的**全部**文字摆在眼前，确认了才落文件（隐私闸）。
+      function exStats() {
+        const cities = nodes.filter(n => !n.frontier).length;
+        const nLinks = bridges.reduce((s, b) => s + (b.links ? b.links.length : 0), 0) +
+          edges.filter(e => { const a = nodeById(e.a), b = nodeById(e.b); return a && b && !a.frontier && !b.frontier; }).length;
+        return { conts: order.length, cities, nb: bridges.length, links: nLinks };
+      }
+      function paintWorld(s) {                     // 把**整个世界**（不只当前相机窗口）画到一张离屏画布
+        s = s || 2;
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(WW * s)); c.height = Math.max(1, Math.round(H * s));
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = true;
+        g.drawImage(off, 0, 0, GW, GH, 0, 0, c.width, c.height);  // 海陆栅格（off = 全世界，SC 缩率）
+        g.scale(s, s);
+        function arcG(a, b) {
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y;
+          const nx = -dy, ny = dx, len = Math.hypot(nx, ny) || 1, bow = Math.min(44, len * 0.16);
+          g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(mx + nx / len * bow, my + ny / len * bow, b.x, b.y);
+        }
+        // 大陆名（与 draw() 同一套定位：沿"世界中心→质心"方向推到大陆外的海上）
+        const cen = {}; nodes.forEach(n => { if (n.frontier) return; const cc = (cen[n.disc] = cen[n.disc] || { x: 0, y: 0, n: 0 }); cc.x += n.x; cc.y += n.y; cc.n++; });
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+        g.font = '700 19px ' + ff('--serif');
+        for (const d in cen) {
+          const cc = cen[d], mx = cc.x / cc.n, my = cc.y / cc.n;
+          let rad = 38; nodes.forEach(n => { if (n.frontier || n.disc !== d) return; rad = Math.max(rad, Math.hypot(n.x - mx, n.y - my)); });
+          const ox = mx - worldCx, oy = my - cy, ol = Math.hypot(ox, oy) || 1;
+          const lx = Math.max(30, Math.min(WW - 30, mx + ox / ol * (rad + 40)));
+          const ly = Math.max(20, Math.min(H - 18, my + oy / ol * (rad + 34)));
+          g.lineWidth = 5; g.strokeStyle = 'rgba(255,255,255,.92)'; g.strokeText(dN(DISC[d].name), lx, ly);
+          g.fillStyle = DISC[d].city; g.fillText(dN(DISC[d].name), lx, ly);
+        }
+        // 州名（≥2 座城才标，同 draw()）
+        const sc2 = {}; nodes.forEach(n => {
+          if (n.frontier || !n.sub) return; const k = n.disc + '|' + n.sub;
+          (sc2[k] = sc2[k] || { x: 0, y: 0, n: 0, nm: n.sub }); sc2[k].x += n.x; sc2[k].y += n.y; sc2[k].n++;
+        });
+        g.font = 'italic 500 11.5px ' + ff('--serif'); g.fillStyle = 'rgba(20,17,11,.5)';
+        for (const k in sc2) { const cc = sc2[k]; if (cc.n < 2) continue; g.fillText('· ' + dN(cc.nm) + ' ·', cc.x / cc.n, cc.y / cc.n + 16); }
+        // 跨学科航路
+        edges.forEach(e => {
+          const a = nodeById(e.a), b = nodeById(e.b); if (!a || !b) return;
+          if (a.frontier || b.frontier || a.disc === b.disc) return;
+          g.strokeStyle = 'rgba(170,112,20,.9)'; g.lineWidth = 1.7; g.setLineDash([5, 4]); arcG(a, b); g.stroke(); g.setLineDash([]);
+        });
+        // 城（无悬停/动画态）
+        g.textBaseline = 'alphabetic';
+        nodes.forEach(n => {
+          if (n.frontier) return;
+          g.fillStyle = COASTstr(.9); g.beginPath(); g.arc(n.x, n.y, 3.2, 0, 6.28); g.fill();
+          g.fillStyle = LABEL_DARK; g.beginPath(); g.arc(n.x, n.y, 1.6, 0, 6.28); g.fill();
+          const fs = (10 + n.mastery * 2.5).toFixed(1);
+          g.font = (n.mastery >= .6 ? '600 ' : '500 ') + fs + 'px ' + ff('--sans');
+          g.globalAlpha = 0.72 + n.mastery * 0.28;
+          g.lineWidth = 3; g.strokeStyle = HALO; g.strokeText(dN(n.label), n.x, n.y - 9);
+          g.fillStyle = LABEL_DARK; g.fillText(dN(n.label), n.x, n.y - 9);
+          g.globalAlpha = 1;
+        });
+        // 已安置的桥（航路 + 菱形链接数）
+        g.textBaseline = 'middle';
+        bridges.forEach(b => {
+          const pts = b.anchorPts || [];
+          if (pts.length === 2) { g.strokeStyle = 'rgba(150,102,20,.82)'; g.lineWidth = 1.9; g.setLineDash([6, 4]); arcG(pts[0], pts[1]); g.stroke(); g.setLineDash([]); }
+          const sz = 6.5;
+          g.save(); g.translate(b.x, b.y); g.rotate(Math.PI / 4);
+          g.fillStyle = 'rgba(255,255,255,.96)'; g.strokeStyle = 'rgba(150,102,20,.98)'; g.lineWidth = 1.7;
+          g.beginPath(); g.rect(-sz, -sz, sz * 2, sz * 2); g.fill(); g.stroke(); g.rotate(-Math.PI / 4);
+          g.fillStyle = 'rgba(120,82,14,1)'; g.font = '700 11px monospace'; g.textAlign = 'center';
+          g.fillText(String(b.links.length || 0), 0, 0.5); g.restore();
+        });
+        return c;
+      }
+      function dateStr() { const d = new Date(), p = x => String(x).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+      function buildShareHtml(mapUrl) {            // 自包含网页：不依赖任何服务器/外链，双击即看
+        const st = exStats();
+        const lang = (function () { try { const loc = getLoc(); return loc && loc.getLocale().active === 'en' ? 'en' : 'zh'; } catch (e) { return 'zh'; } })();
+        const stats = TF('{0} 块大陆 · {1} 座城 · {2} 座桥 · {3} 条链接', st.conts, st.cities, st.nb, st.links);
+        const bHtml = bridges.map(b => {
+          const ca = b.aKey && DISC[b.aKey] ? DISC[b.aKey].city : '#666', cb = b.bKey && DISC[b.bKey] ? DISC[b.bKey].city : '#666';
+          return '<div class="b"><b style="color:' + ca + '">' + esc(dN(b.discA)) + (b.aSub ? '<i>·' + esc(dN(b.aSub)) + '</i>' : '') + '</b> ⟷ <b style="color:' + cb + '">' + esc(dN(b.discB)) + (b.bSub ? '<i>·' + esc(dN(b.bSub)) + '</i>' : '') + '</b>' +
+            (b.links || []).map(l => l.text ? '<div class="l">' + esc(l.text) + '</div>' : '').join('') + '</div>';
+        }).join('') || '<div class="none">' + T('（还没有桥）') + '</div>';
+        const cHtml = order.map(k => {
+          const cs = nodes.filter(n => !n.frontier && n.disc === k).map(n => esc(dN(n.label)));
+          return '<div class="c"><b style="color:' + DISC[k].city + '">' + esc(dN(DISC[k].name)) + '</b>　' + cs.join('、') + '</div>';
+        }).join('');
+        // 内嵌 JSON = 疆域的可读备份（学科/城/桥用中文名原文，与 territory.json 同一套 key）
+        const payload = {
+          app: 'knowledge-territory', exportedAt: new Date().toISOString(),
+          disciplines: order.map(k => DISC[k].name),
+          cities: nodes.filter(n => !n.frontier).map(n => ({ label: n.label, disc: DISC[n.disc].name, sub: n.sub || '' })),
+          bridges: bridges.map(b => ({ discA: b.discA, discB: b.discB, subA: b.aSub || '', subB: b.bSub || '', links: (b.links || []).map(l => ({ kind: l.kind, text: l.text || '' })) })),
+        };
+        return `<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${T('知识疆域')} · ${dateStr()}</title>
+<style>
+:root{--ink:#18181a;--dim:#55565b;--faint:#86888d;--hair:rgba(0,0,0,.14)}
+html,body{margin:0;padding:0;background:#fff;color:var(--ink)}
+body{font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;padding:34px 20px 46px}
+.wrap{max-width:900px;margin:0 auto}
+header{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:6px}
+.mk{font-size:15px}
+h1{font-family:"Palatino Linotype",Palatino,Georgia,"Songti SC",serif;font-size:23px;font-weight:600;letter-spacing:.06em;margin:0}
+.date{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--faint)}
+.stats{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--dim);margin-bottom:14px}
+.mapbox{border:1px solid var(--hair);border-radius:13px;overflow:auto;background:#fbfcfd}
+.mapbox img{display:block;max-width:100%;cursor:zoom-in}
+body.full .mapbox img{max-width:none;cursor:zoom-out}
+.tip{font-size:11px;color:var(--faint);margin:6px 2px 0}
+h2{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--faint);font-weight:600;margin:30px 0 10px}
+.b{border:1px solid var(--hair);border-radius:11px;padding:11px 14px;margin-bottom:9px;font-size:14px}
+.b i{font-style:normal;font-weight:400;font-size:12px;opacity:.75}
+.b .l{color:var(--dim);font-size:13px;margin-top:6px;padding-left:10px;border-left:2px solid var(--hair);white-space:pre-wrap;word-break:break-word}
+.c{font-size:13.5px;line-height:2}
+.none{color:var(--faint);font-size:13px}
+footer{margin-top:38px;font-size:11.5px;color:var(--faint)}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><span class="mk">◆</span><h1>${T('知识疆域')}</h1><span class="date">${dateStr()}</span></header>
+<div class="stats">${stats}</div>
+<div class="mapbox"><img id="m" src="${mapUrl}" alt="map"></div>
+<div class="tip">${T('点击地图可在「适应宽度 / 原始大小」间切换')}</div>
+<h2>${T('桥 · 连接的理由')}</h2>
+${bHtml}
+<h2>${T('大陆与城')}</h2>
+${cHtml}
+<footer>${T('由知识疆域生成')} · <a href="https://github.com/xiayuhkust/knowledge-territory">github.com/xiayuhkust/knowledge-territory</a></footer>
+</div>
+<script type="application/json" id="territory">${JSON.stringify(payload).replace(/</g, '\\u003c')}</script>
+<script>document.getElementById('m').onclick=function(){document.body.classList.toggle('full')};</script>
+</body>
+</html>`;
+      }
+      function downloadFile(name, blob) {
+        try {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = name;
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) { } }, 2000);
+        } catch (e) { }
+      }
+      function doExportPng() {
+        try {
+          paintWorld(2).toBlob(bl => {
+            if (bl) { downloadFile(T('知识疆域') + '-' + dateStr() + '.png', bl); toast(T('已导出图片'), 'plain', 2200); }
+            else toast(T('导出失败'), 'plain', 2200);
+          }, 'image/png');
+        } catch (e) { toast(T('导出失败'), 'plain', 2200); }
+      }
+      function doExportHtml() {
+        try {
+          const html = buildShareHtml(paintWorld(2).toDataURL('image/png'));
+          downloadFile(T('知识疆域') + '-' + dateStr() + '.html', new Blob([html], { type: 'text/html' }));
+          toast(T('已导出网页 —— 双击就能打开，发给朋友也一样'), 'plain', 3200);
+        } catch (e) { toast(T('导出失败'), 'plain', 2200); }
+      }
+      const exModal = document.createElement('div'); exModal.className = 'ov-modal'; stage.appendChild(exModal);
+      exModal.addEventListener('click', e => { if (e.target === exModal) exModal.classList.remove('show'); });
+      function openExport() {
+        if (!nodes.some(n => !n.frontier) && !bridges.length) { toast(T('疆域还是白海——先开辟一块大陆，或安置一座桥。'), 'plain', 2800); return; }
+        renderExport(); exModal.classList.add('show');
+      }
+      function renderExport() {
+        const st = exStats();
+        let html = '<div class="ov-card"><div class="rl-row" style="margin-bottom:6px"><h3>' + T('分享疆域') + '</h3><button class="mini" id="exClose">' + T('关闭') + '</button></div>' +
+          '<div class="ov-sub-h">' + T('导出前请过目：下面就是将要分享出去的全部内容。') + '</div>' +
+          '<div class="ex-stats">' + TF('{0} 块大陆 · {1} 座城 · {2} 座桥 · {3} 条链接', st.conts, st.cities, st.nb, st.links) + '</div>';
+        html += '<div class="ex-sec">' + T('桥 · 连接的理由') + '</div>';
+        if (!bridges.length) html += '<div class="bp-empty">' + T('（还没有桥）') + '</div>';
+        bridges.forEach(b => {
+          const ca = b.aKey && DISC[b.aKey] ? DISC[b.aKey].city : '#666', cb = b.bKey && DISC[b.bKey] ? DISC[b.bKey].city : '#666';
+          html += '<div class="ex-b"><b style="color:' + ca + '">' + esc(dN(b.discA)) + (b.aSub ? '·' + esc(dN(b.aSub)) : '') + '</b> ⟷ <b style="color:' + cb + '">' + esc(dN(b.discB)) + (b.bSub ? '·' + esc(dN(b.bSub)) : '') + '</b>' +
+            (b.links || []).map(l => l.text ? '<div class="ex-l">' + linkIcon(l.kind) + ' ' + esc(l.text) + '</div>' : '').join('') + '</div>';
+        });
+        html += '<div class="ex-sec">' + T('大陆与城') + '</div>';
+        order.forEach(k => {
+          const cs = nodes.filter(n => !n.frontier && n.disc === k).map(n => esc(dN(n.label)));
+          html += '<div class="ex-c"><b style="color:' + DISC[k].city + '">' + esc(dN(DISC[k].name)) + '</b>　' + cs.join('、') + '</div>';
+        });
+        html += '<div class="ex-actions"><button class="btn ghost" id="exPng">' + T('导出图片') + '</button><button class="btn lite" id="exHtml">' + T('导出网页') + '</button></div></div>';
+        exModal.innerHTML = html;
+        exModal.querySelector('#exClose').onclick = () => exModal.classList.remove('show');
+        exModal.querySelector('#exPng').onclick = doExportPng;
+        exModal.querySelector('#exHtml').onclick = doExportHtml;
+      }
+
       // ── 桥面板（bpanel）：一处看链接 + 改两端；点选两端即安置。替代原"安置"弹窗 ──
       const bpanel = document.createElement('div'); bpanel.className = 'picker bpanel'; stage.appendChild(bpanel);
       let bp = null;   // { target, isDraft, editEnd:null|'a'|'b', openLink:null }
@@ -1325,6 +1544,7 @@ window.__ModuleLoader__.load({
       ovModal.querySelector('#ovNewGo').onclick = ovNewGo;
       ovNew.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ovNewGo(); } };
       byId("newLink").onclick = () => openBridgePanel(addDraft({ links: [], empty: true }), true);  // 新建连接（空预备桥，直接开面板选两端）
+      byId("shareBtn").onclick = openExport;                       // 分享：预览确认 → 自包含网页 / PNG
       seed(); resize();
       nodes.forEach(n => {
         if (n.frontier) {
