@@ -92,6 +92,8 @@ window.__ModuleLoader__.load({
       '大陆与城': 'Continents & cities',
       '导出网页': 'Export web page',
       '导出图片': 'Export image',
+      '导出长图': 'Export long image',
+      '已导出长图 —— 微信里直接发这张图': 'Long image exported — send it straight in chat',
       '疆域还是白海——先开辟一块大陆，或安置一座桥。': 'The territory is still open sea — found a continent or place a bridge first.',
       '已导出图片': 'Image exported',
       '已导出网页 —— 双击就能打开，发给朋友也一样': 'Web page exported — double-click to open, or send it to a friend as is',
@@ -1358,10 +1360,100 @@ ${cHtml}
           setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) { } }, 2000);
         } catch (e) { }
       }
+      // ── 长图：地图快照在上、桥的游记排版画在下——微信场景一张图讲完整个故事 ──
+      function buildLongImage() {
+        const map = paintWorld(2);
+        const s = 2, LW = 1080, PAD = 46, CW = LW - PAD * 2;    // 1080 逻辑宽 = 微信长图惯例
+        const mapH = Math.max(1, Math.round(CW * map.height / map.width));
+        const serif = ff('--serif'), sans = ff('--sans');
+        const INK = '#18181a', DIM = '#55565b', FAINT = '#86888d', HAIR = 'rgba(0,0,0,.14)';
+        const meas = document.createElement('canvas').getContext('2d');
+        function wrapText(text, font, width) {                   // 逐字换行:中文天然合适,英文允许断词
+          meas.font = font; const out = []; let ln = '';
+          for (const ch of String(text || '').replace(/\r/g, '')) {
+            if (ch === '\n') { out.push(ln); ln = ''; continue; }
+            if (ln && meas.measureText(ln + ch).width > width) { out.push(ln); ln = ch === ' ' ? '' : ch; }
+            else ln += ch;
+          }
+          out.push(ln); return out;
+        }
+        function rr(g, x, yy, w, hh, r) {
+          g.beginPath(); g.moveTo(x + r, yy); g.arcTo(x + w, yy, x + w, yy + hh, r); g.arcTo(x + w, yy + hh, x, yy + hh, r);
+          g.arcTo(x, yy + hh, x, yy, r); g.arcTo(x, yy, x + w, yy, r); g.closePath();
+        }
+        const st = exStats();
+        const statsLine = TF('{0} 块大陆 · {1} 座城 · {2} 座桥 · {3} 条链接', st.conts, st.cities, st.nb, st.links);
+        function render(g) {                                     // g=null 只量总高;同一套排版跑两遍,不会错位
+          let y = PAD;
+          function put(str, font, color, x) { if (g) { g.font = font; g.fillStyle = color; g.fillText(str, x, y); } }
+          function block(str, font, color, x, width, lh) { wrapText(str, font, width).forEach(l => { put(l, font, color, x); y += lh; }); }
+          function secHead(str) { put(str, '600 13.5px ' + sans, FAINT, PAD); y += 32; }
+          // 头:标题 + 日期 + 统计
+          put('◆ ' + T('知识疆域'), '600 30px ' + serif, INK, PAD);
+          if (g) { g.font = '400 15px ' + sans; g.fillStyle = FAINT; g.textAlign = 'right'; g.fillText(dateStr(), LW - PAD, y + 13); g.textAlign = 'left'; }
+          y += 48;
+          put(statsLine, '400 16px ' + sans, DIM, PAD); y += 40;
+          // 地图快照(圆角裁切 + 细边)
+          if (g) {
+            g.save(); rr(g, PAD, y, CW, mapH, 14); g.clip();
+            g.drawImage(map, PAD, y, CW, mapH); g.restore();
+            rr(g, PAD, y, CW, mapH, 14); g.strokeStyle = HAIR; g.lineWidth = 1; g.stroke();
+          }
+          y += mapH + 40;
+          // 桥的游记:两端按大陆色着色,连接语全文
+          secHead(T('桥 · 连接的理由'));
+          if (!bridges.length) { put(T('（还没有桥）'), '400 15px ' + sans, FAINT, PAD); y += 26; }
+          bridges.forEach(b => {
+            const na = dN(b.discA) + (b.aSub ? '·' + dN(b.aSub) : ''), nb2 = dN(b.discB) + (b.bSub ? '·' + dN(b.bSub) : '');
+            const ca = b.aKey && DISC[b.aKey] ? DISC[b.aKey].city : '#666', cb = b.bKey && DISC[b.bKey] ? DISC[b.bKey].city : '#666';
+            const arrow = ' ⟷ '; let tf = '600 21px ' + sans;
+            meas.font = tf; if (meas.measureText(na + arrow + nb2).width > CW) tf = '600 17px ' + sans;  // 名字太长缩一号
+            if (g) {
+              g.font = tf; let x = PAD;
+              g.fillStyle = ca; g.fillText(na, x, y); x += g.measureText(na).width;
+              g.fillStyle = FAINT; g.fillText(arrow, x, y); x += g.measureText(arrow).width;
+              g.fillStyle = cb; g.fillText(nb2, x, y);
+            }
+            y += 34;
+            (b.links || []).forEach(l => {
+              if (!l.text) return;
+              const y0 = y;
+              block(l.text, '400 16.5px ' + sans, DIM, PAD + 18, CW - 18, 27);
+              if (g) { g.fillStyle = HAIR; g.fillRect(PAD + 3, y0 + 3, 3, Math.max(6, y - y0 - 9)); }  // 引文左线
+              y += 8;
+            });
+            y += 22;
+          });
+          // 大陆与城
+          y += 6; secHead(T('大陆与城'));
+          order.forEach(k => {
+            put(dN(DISC[k].name), '600 17px ' + sans, DISC[k].city, PAD); y += 27;
+            const cs = nodes.filter(n => !n.frontier && n.disc === k).map(n => dN(n.label)).join('、');
+            if (cs) block(cs, '400 15.5px ' + sans, DIM, PAD + 16, CW - 16, 25);
+            y += 12;
+          });
+          // 脚
+          y += 16;
+          if (g) { g.strokeStyle = HAIR; g.beginPath(); g.moveTo(PAD, y); g.lineTo(LW - PAD, y); g.stroke(); }
+          y += 18;
+          put(T('由知识疆域生成') + ' · github.com/xiayuhkust/knowledge-territory', '400 13.5px ' + sans, FAINT, PAD);
+          y += 40;
+          return y;
+        }
+        const totalH = Math.ceil(render(null));
+        const c = document.createElement('canvas');
+        c.width = LW * s; c.height = Math.round(totalH * s);
+        const g = c.getContext('2d');
+        g.scale(s, s);
+        g.fillStyle = '#ffffff'; g.fillRect(0, 0, LW, totalH);
+        g.textBaseline = 'top'; g.textAlign = 'left';
+        render(g);
+        return c;
+      }
       function doExportPng() {
         try {
-          paintWorld(2).toBlob(bl => {
-            if (bl) { downloadFile(T('知识疆域') + '-' + dateStr() + '.png', bl); toast(T('已导出图片'), 'plain', 2200); }
+          buildLongImage().toBlob(bl => {
+            if (bl) { downloadFile(T('知识疆域') + '-' + dateStr() + '.png', bl); toast(T('已导出长图 —— 微信里直接发这张图'), 'plain', 2600); }
             else toast(T('导出失败'), 'plain', 2200);
           }, 'image/png');
         } catch (e) { toast(T('导出失败'), 'plain', 2200); }
@@ -1396,7 +1488,7 @@ ${cHtml}
           const cs = nodes.filter(n => !n.frontier && n.disc === k).map(n => esc(dN(n.label)));
           html += '<div class="ex-c"><b style="color:' + DISC[k].city + '">' + esc(dN(DISC[k].name)) + '</b>　' + cs.join('、') + '</div>';
         });
-        html += '<div class="ex-actions"><button class="btn ghost" id="exPng">' + T('导出图片') + '</button><button class="btn lite" id="exHtml">' + T('导出网页') + '</button></div></div>';
+        html += '<div class="ex-actions"><button class="btn ghost" id="exHtml">' + T('导出网页') + '</button><button class="btn lite" id="exPng">' + T('导出长图') + '</button></div></div>';
         exModal.innerHTML = html;
         exModal.querySelector('#exClose').onclick = () => exModal.classList.remove('show');
         exModal.querySelector('#exPng').onclick = doExportPng;
