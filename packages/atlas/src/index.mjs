@@ -63,6 +63,8 @@ export function apply(ctx, config = {}) {
   // 故照 crosslens 的做法只在真正分类时才 import，交由运行时上下文解析)。
   let classifyModP = null
   const classifyMod = () => (classifyModP ||= import('./classify-llm.mjs'))
+  let mineModP = null
+  const mineMod = () => (mineModP ||= import('./mine-llm.mjs'))
 
   // 最近对话缓冲(留给 compileSession 的抽取用;纯内存)
   const recents = new Map()
@@ -79,12 +81,22 @@ export function apply(ctx, config = {}) {
         case 'getMap':
           return ok(serialize())
 
-        // 会话 → 候选概念 + 候选连线。TODO:接 LLM 抽取;现为桩,返回空提案(前端仍可手动建/连)。
+        // 会话 → 候选桥(拉式:前端「从对话找桥」按钮触发,方案 a)。LLM 从最近对话摘要里提炼 ≤3 座,
+        // 只作提议进前端预备桥队列——安置永远在用户手里。太短/失败都返回 ok(空),不打断任何流程。
         case 'compileSession': {
           const sid = payload && payload.sessionId
-          const gists = (sid != null && recents.get(sid)) ? recents.get(sid).slice() : []
-          // TODO(llm): 用 ctx.llm + gists 抽出 {newConcepts:[{label,disc,sub}], candidates:[{a,b,guess}]}
-          return ok({ newConcepts: [], candidates: [], note: 'compileSession 抽取待接入 LLM', gistCount: gists.length })
+          const gists = (sid != null && recents.get(sid)) ? recents.get(sid).filter(Boolean) : []
+          if (gists.length < 2) return ok({ bridges: [], gistCount: gists.length, note: 'too-short' })
+          const names = Array.isArray(payload?.disciplines) && payload.disciplines.length ? payload.disciplines
+            : (state.disciplines.length ? state.disciplines.map((d) => d.name) : LIB_NAMES)
+          try {
+            const mine = config.miner || (await mineMod()).makeMiner(ctx, { ...cfg })
+            const found = await mine(gists, names)
+            return ok({ bridges: found, gistCount: gists.length })
+          } catch (e) {
+            ctx.logger?.warn?.(`atlas compileSession: ${e?.message || e}`)
+            return ok({ bridges: [], gistCount: gists.length, note: 'llm-failed' })
+          }
         }
 
         // 笔记 → 桥两端学科的 AI 判定(前端把它做成"带连上的桥",用户可改两端)。

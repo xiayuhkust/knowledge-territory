@@ -8,7 +8,8 @@
 
 import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'
 
-async function runLlm(ctx, prompt, opts = {}) {
+export async function runLlm(ctx, prompt, opts = {}) {   // mine-llm(从对话找桥)复用同一套调用
+
   const { provider = 'deepseek-official', model = 'deepseek-v4-flash', maxTokens = 512, attempts = 2, reasoningEffort = 'none' } = opts
   const messages = [createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'plugin', plugin: 'atlas' } })]
   const options = { provider, model, messages, maxTokens, reasoningEffort, ...(opts.signal ? { signal: opts.signal } : {}) }

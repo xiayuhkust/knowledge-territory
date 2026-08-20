@@ -100,6 +100,12 @@ window.__ModuleLoader__.load({
       '导出失败': 'Export failed',
       '点击地图可在「适应宽度 / 原始大小」间切换': 'Click the map to toggle fit-width / actual size',
       '由知识疆域生成': 'Made with Knowledge Territory',
+      // —— 从对话找桥(拉式进料)——
+      '✦ 从对话找桥': '✦ Bridges from chat',
+      '提炼中…': 'Mining…',
+      '对话还太短，聊一会儿再来提炼': 'The conversation is still short — chat a bit more first',
+      '从对话里提炼了 {0} 座候选桥 —— 在左栏等你安置': 'Found {0} candidate bridge(s) in the chat — waiting in the left rail',
+      '这轮对话里没提炼出新桥（可忽略）': 'No new bridges from this chat (ignorable)',
       // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
       //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
       '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
@@ -270,6 +276,7 @@ window.__ModuleLoader__.load({
 .dsh-atlas-root .pk-actions{display:flex;justify-content:flex-end;gap:9px}
 .dsh-atlas-root .pk-actions .btn.lite{padding:8px 18px}
 .dsh-atlas-root .rl-row{display:flex;justify-content:space-between;align-items:center;padding-right:14px}
+.dsh-atlas-root .rl-btns{display:flex;gap:6px}
 .dsh-atlas-root .mini{background:transparent;border:1px solid var(--hair);color:var(--ink-dim);border-radius:7px;
   font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--sans);letter-spacing:0;text-transform:none}
 .dsh-atlas-root .mini:hover{border-color:var(--gold);color:var(--ink)}
@@ -394,7 +401,7 @@ window.__ModuleLoader__.load({
         <div class="rail-label rl-row">${T('学科总览')}<button id="ovOpen" class="mini">${T('查看')}</button></div>
       </section>
       <section class="inbox">
-        <div class="rail-label rl-row">${T('待你点亮的连接')}<button id="newLink" class="mini">${T('＋ 新建连接')}</button></div>
+        <div class="rail-label rl-row">${T('待你点亮的连接')}<span class="rl-btns"><button id="mineBtn" class="mini">${T('✦ 从对话找桥')}</button><button id="newLink" class="mini">${T('＋ 新建连接')}</button></span></div>
         <div id="candidates"></div>
       </section>
     </aside>
@@ -416,7 +423,7 @@ window.__ModuleLoader__.load({
     // document.querySelectorAll → root.querySelectorAll;getComputedStyle(document.body) → getComputedStyle(root);
     // 顶层 rAF 收编进 rafId+stopped 以便卸载取消;window.resize 具名以便解绑,并附加 ResizeObserver;返回 cleanup。
     // TODO(RPC): 将 seed()/compile() 的内存 MOCK 换成 rpc.call('/atlas','getMap') 等——见 apply 里 rpcCall 埋点。
-    function runAtlas(root) {
+    function runAtlas(root, getSid) {                       // getSid:当前会话 id 的 getter(「从对话找桥」用)
       "use strict";
       var stopped = false, rafId = 0, ro = null;
       function byId(id) { return root.querySelector('#' + id); }
@@ -1023,7 +1030,7 @@ window.__ModuleLoader__.load({
       // 一座桥可承载多条链接(菱形里的数字=链接数)；同两端的卡/笔记并进同一座桥。
       function sameEnds(b, ka, kb) { return (b.aKey === ka && b.bKey === kb) || (b.aKey === kb && b.bKey === ka); }
       function findPlaced(ka, kb, except) { return bridges.find(b => b !== except && sameEnds(b, ka, kb)); }
-      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : '·'; }
+      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : kind === 'session' ? '💬' : '·'; }
       function newLink(kind, text, ref) { return { id: 'l' + (++bseq), kind: kind || 'manual', text: text || '', ref: ref || null }; }
       function ingestBridge(raw) {          // 恢复：后端已安置的桥（addNote 落库），按两端并成一座、收集链接
         if (!raw.discA || !raw.discB) return null;
@@ -1076,8 +1083,35 @@ window.__ModuleLoader__.load({
         const draft = { id, links: d.links || [], aName: d.aName || '', bName: d.bName || '', why: '', classifying: false };
         drafts.push(draft); renderRail();
         if (rpcCall && draftText(draft) && !(draft.aName && draft.bName)) { draft.classifying = true; renderRail(); classifyDraft(draft); }
-        toast(d.empty ? T('空的<b>预备连接</b>已加到左栏 —— 点它选两端') : T('已加到左栏<b>预备桥</b> —— 点它，选两端安置'), 'plain', 2600);
+        if (!d.quiet) toast(d.empty ? T('空的<b>预备连接</b>已加到左栏 —— 点它选两端') : T('已加到左栏<b>预备桥</b> —— 点它，选两端安置'), 'plain', 2600);
         return draft;
+      }
+      // 拉式进料(方案 a):点了才从最近的对话提炼候选桥——AI 只提议,安置永远在你手里。
+      let mining = false;
+      function mineSession() {
+        const btn = byId('mineBtn'), sid = getSid ? getSid() : null;
+        if (mining) return;
+        if (!rpcCall || !sid) { toast(T('对话还太短，聊一会儿再来提炼'), 'plain', 2600); return; }
+        mining = true; if (btn) { btn.disabled = true; btn.textContent = T('提炼中…'); }
+        Promise.resolve(rpcCall('/atlas', 'compileSession', { sessionId: sid, disciplines: discChoices().map(it => it.name) }))
+          .then(r => {
+            const v = (r && r.ok && r.value) || {};
+            if (v.note === 'too-short') { toast(T('对话还太短，聊一会儿再来提炼'), 'plain', 2600); return; }
+            const found = Array.isArray(v.bridges) ? v.bridges : [];
+            // 同一句 why 已在(草稿或已安置的链接里) → 不重复入队
+            const dup = (t) => !!t && (getDrafts().some(d => (d.links || []).some(l => l.text === t)) ||
+              bridges.some(b => (b.links || []).some(l => l.text === t)));
+            let added = 0;
+            found.forEach(c => {
+              if (!c || !c.a || !c.b || dup(c.why)) return;
+              addDraft({ links: c.why ? [newLink('session', c.why)] : [], aName: c.a, bName: c.b, quiet: true });
+              added++;
+            });
+            if (added) toast(TF('从对话里提炼了 {0} 座候选桥 —— 在左栏等你安置', added), '', 3200);
+            else toast(T('这轮对话里没提炼出新桥（可忽略）'), 'plain', 2600);
+          })
+          .catch(() => toast(T('这轮对话里没提炼出新桥（可忽略）'), 'plain', 2600))
+          .finally(() => { mining = false; if (btn) { btn.disabled = false; btn.textContent = T('✦ 从对话找桥'); } });
       }
       function classifyDraft(draft) {                        // AI 先判两端（不确定就留空，等你手点）
         Promise.resolve(rpcCall('/atlas', 'classifyNote', { text: draftText(draft), disciplines: discChoices().map(it => it.name) }))
@@ -1637,6 +1671,7 @@ ${cHtml}
       ovNew.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ovNewGo(); } };
       byId("newLink").onclick = () => openBridgePanel(addDraft({ links: [], empty: true }), true);  // 新建连接（空预备桥，直接开面板选两端）
       byId("shareBtn").onclick = openExport;                       // 分享：预览确认 → 自包含网页 / PNG
+      byId("mineBtn").onclick = mineSession;                       // 从对话找桥（拉式进料，方案 a）
       seed(); resize();
       nodes.forEach(n => {
         if (n.frontier) {
@@ -1673,14 +1708,16 @@ ${cHtml}
     }
 
     // ════════════════ React 挂载:容器 div + innerHTML + effect 内跑 vanilla 脚本 ════════════════
-    function AtlasMap() {
+    function AtlasMap(props) {
       var ref = React.useRef(null);
+      // sessionId 随渲染更新进 ref;runAtlas 拿到的是 getter,点「从对话找桥」时取当下值(切会话不用重挂)。
+      var sidRef = React.useRef(props && props.sessionId); sidRef.current = props && props.sessionId;
       React.useEffect(function () {
         injectStyle();
         var host = ref.current;
         if (!host) return;
         host.innerHTML = bodyHtml();              // 原型 body 结构一次性写入(带当前语言)
-        var cleanup = runAtlas(host);             // 脚本在此容器作用域内运行
+        var cleanup = runAtlas(host, function () { return sidRef.current; });  // 脚本在此容器作用域内运行
         return function () {
           try { if (typeof cleanup === 'function') cleanup(); } catch (e) { }
           try { host.innerHTML = ''; } catch (e) { }
@@ -1708,11 +1745,10 @@ ${cHtml}
     };
 
     function AtlasLauncher(props) {
-      // shell.overlay 是 app 级、无会话上下文;槽注入全局 useSessions(切会话自动重渲染)。地图暂用 mock,
-      // 故 sessionId 现在只取用不消费,留待接 RPC 时按当前会话拉图。
+      // shell.overlay 是 app 级、无会话上下文;槽注入全局 useSessions(切会话自动重渲染)。
+      // sessionId 传给地图:「从对话找桥」按当前会话向后端提炼候选桥。
       var useSessions = props.useSessions;
       var sessionId = (typeof useSessions === 'function') ? useSessions(function (s) { return s && s.current; }) : null;
-      void sessionId;
 
       var os = React.useState(false); var open = os[0], setOpen = os[1];
       // 启动权收归节奏台:不再自带浮钮,改为监听 hub 置顶入口派发的全局事件来打开。
@@ -1732,7 +1768,7 @@ ${cHtml}
             try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:closed')); } catch (e) { } // 通知浮窗恢复
           },
         }, '×'),
-          h(AtlasMap, { key: 'map' }),
+          h(AtlasMap, { key: 'map', sessionId: sessionId }),
         ]),
       ]);
     }
