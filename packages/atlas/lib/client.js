@@ -983,10 +983,27 @@ window.__ModuleLoader__.load({
       }
       // 学科增加 → 世界变宽：重算世界、重建海陆栅格、重排桥
       function relayout() { discLayout(); off.width = GW; GH = Math.round(H * SC); off.height = GH; clampCam(); buildWarp(); bridges.forEach(placeBridge); setCursor(); }
-      function loadBridgesFromBackend() {
+      // 开辟的城(首府/州)落库——疆域重启后由 loadTerritory 恢复;后端 addConcept 幂等,重复开辟不重复落
+      function persistCity(label, discName, sub) {
+        if (!rpcCall) return;
+        try { rpcCall('/atlas', 'addConcept', { label, disc: discName, sub: sub || '', ts: Date.now() }); } catch (e) { }
+      }
+      function loadTerritory() {                             // 启动:从后端(~/.dsh/atlas/territory.json)恢复疆域
         if (!rpcCall) return;
         Promise.resolve(rpcCall('/atlas', 'getMap', {})).then(r => {
-          if (r && r.ok && r.value && Array.isArray(r.value.bridges)) r.value.bridges.forEach(b => { if (b.discA && b.discB) ingestBridge(b); });
+          if (!(r && r.ok && r.value)) return;
+          const v = r.value, keyName = {};
+          (v.disciplines || []).forEach(d => { keyName[d.key] = d.name; });
+          let touched = false;
+          (v.nodes || []).forEach(nd => {                    // 先恢复城(开辟过的大陆/州随之恢复)
+            const dn = keyName[nd.disc] || nd.disc; if (!dn || !nd.label) return;
+            const gk = getDiscKey(dn), sub = nd.sub || '';
+            if (!nodes.some(x => !x.frontier && x.disc === gk.key && x.label === nd.label && (x.sub || '') === sub)) {
+              const c = N(nd.label, gk.key, typeof nd.mastery === 'number' ? nd.mastery : 0.45, nd.src || T('恢复疆域')); c.sub = sub; placeNear(c); touched = true;
+            }
+          });
+          (v.bridges || []).forEach(b => { if (b.discA && b.discB) { ingestBridge(b); touched = true; } });
+          if (touched) { settle(180); rebuild(false); bridges.forEach(placeBridge); renderLegend(); renderOverview(); updateReadout(); }
         }).catch(() => { });
       }
       // 抽卡 / 记一笔 交接：都作为"预备桥"落到左栏。经 window 队列，地图刚开也不丢。
@@ -1038,7 +1055,7 @@ window.__ModuleLoader__.load({
       });
       function foundDisc(nm) {                                     // 开辟一块大陆（总库/自建通用）
         const gk = getDiscKey(nm);
-        if (gk.created) { const cap = N(nm, gk.key, 0.42, T('新建学科')); placeNear(cap); settle(80); }
+        if (gk.created) { const cap = N(nm, gk.key, 0.42, T('新建学科')); placeNear(cap); settle(80); persistCity(nm, nm, ''); }
         rebuild(false); renderLegend(); renderOverview(); updateReadout();
         toast(gk.created ? TF('开辟了「{0}」大陆', esc(nm)) : TF('「{0}」已在图上', esc(nm)), 'plain', 2400);
         return gk;
@@ -1046,9 +1063,9 @@ window.__ModuleLoader__.load({
       function subOpened(k, s) { return nodes.some(n => !n.frontier && n.disc === k && n.sub === s); }
       function foundSub(dn, sn) {                                  // 开辟一片"州"（二级学科；父大陆没开就先开）
         const gk = getDiscKey(dn);
-        if (gk.created) { const cap = N(dn, gk.key, 0.42, T('新建学科')); placeNear(cap); }
+        if (gk.created) { const cap = N(dn, gk.key, 0.42, T('新建学科')); placeNear(cap); persistCity(dn, dn, ''); }
         if (subOpened(gk.key, sn)) { toast(TF('「{0}」已在图上', esc(sn)), 'plain', 2000); return; }
-        const c = N(sn, gk.key, 0.4, T('开辟二级学科')); c.sub = sn; placeNear(c);
+        const c = N(sn, gk.key, 0.4, T('开辟二级学科')); c.sub = sn; placeNear(c); persistCity(sn, dn, sn);
         settle(120); rebuild(false); renderLegend(); renderOverview(); updateReadout();
         toast(TF('在「{0}」开辟了「{1}」州', esc(dn), esc(sn)), 'plain', 2400);
       }
@@ -1149,7 +1166,13 @@ window.__ModuleLoader__.load({
           pickEnd(bp.editEnd, el.dataset.pick, el.dataset.sub || '', el.classList.contains('discChip'))); // 选大陆→留着挑州；选州→收起
         const en = byId('endnew'); if (en) en.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = en.value.trim(); if (v) pickEnd(bp.editEnd, v, '', true); } };
         bpanel.querySelectorAll('.bp-link').forEach(el => el.querySelector('.bp-lrow').onclick = (e) => { if (e.target.dataset.del) return; bp.openLink = bp.openLink === el.dataset.link ? null : el.dataset.link; renderPanel(); });
-        bpanel.querySelectorAll('.bp-lx').forEach(el => el.onclick = () => { t.links = t.links.filter(l => l.id !== el.dataset.del); commitAfterEdit(); renderPanel(); });
+        bpanel.querySelectorAll('.bp-lx').forEach(el => el.onclick = () => {
+          const gone = t.links.find(l => l.id === el.dataset.del);
+          t.links = t.links.filter(l => l.id !== el.dataset.del);
+          // 已落库的链接同步从后端删(按 学科对+原文;草稿链接没落过库不用删)
+          if (gone && gone._saved && !bp.isDraft && rpcCall) { try { rpcCall('/atlas', 'removeLink', { discA: t.discA, discB: t.discB, text: gone.text }); } catch (e) { } }
+          commitAfterEdit(); renderPanel();
+        });
         bpanel.querySelectorAll('.bp-back').forEach(el => el.onclick = () => backToJiyibi(t.links.find(l => l.id === el.dataset.back)));
         const ag = byId('bpAddGo'); if (ag) ag.onclick = () => { const inp = byId('bpAdd'), v = inp && inp.value.trim(); if (v) { t.links.push(newLink('manual', v)); commitAfterEdit(); renderPanel(); } };
         byId('bpDel').onclick = deleteBridge; byId('bpClose').onclick = closePanel;
@@ -1158,8 +1181,8 @@ window.__ModuleLoader__.load({
       function pickEnd(slot, name, sub, keepOpen) {
         sub = sub || '';
         const gk = getDiscKey(name);
-        if (gk.created) { const cap = N(name, gk.key, 0.4, T('桥端新辟')); placeNear(cap); }
-        if (sub && !subOpened(gk.key, sub)) { const c = N(sub, gk.key, 0.4, T('桥端新辟')); c.sub = sub; placeNear(c); } // 选到州 → 州也开辟
+        if (gk.created) { const cap = N(name, gk.key, 0.4, T('桥端新辟')); placeNear(cap); persistCity(name, name, ''); }
+        if (sub && !subOpened(gk.key, sub)) { const c = N(sub, gk.key, 0.4, T('桥端新辟')); c.sub = sub; placeNear(c); persistCity(sub, name, sub); } // 选到州 → 州也开辟(随城落库)
         if (gk.created || sub) settle(80);
         if (bp.isDraft) {
           if (slot === 'a') { bp.target.aName = DISC[gk.key].name; bp.target.aSub = sub; }
@@ -1200,7 +1223,11 @@ window.__ModuleLoader__.load({
       function deleteBridge() {
         const t = bp.target;
         if (bp.isDraft) { const arr = getDrafts(), i = arr.indexOf(t); if (i >= 0) arr.splice(i, 1); renderRail(); }
-        else { bridges = bridges.filter(x => x !== t); rebuild(false); renderLegend(); updateReadout(); }
+        else {
+          bridges = bridges.filter(x => x !== t); rebuild(false); renderLegend(); updateReadout();
+          // 后端同步删(桥按"同两端并成一座"存取,故按学科对删)
+          if (t.discA && t.discB && rpcCall) { try { rpcCall('/atlas', 'removeBridgePair', { discA: t.discA, discB: t.discB }); } catch (e) { } }
+        }
         closePanel();
       }
       function backToJiyibi(link) {
@@ -1224,7 +1251,7 @@ window.__ModuleLoader__.load({
         } else placeNear(n);
       });
       settle(260); rebuild(false); renderLegend(); renderOverview(); updateReadout(); setCursor();
-      loadBridgesFromBackend();                                  // 拉后端已安置的桥落回疆域
+      loadTerritory();                                           // 恢复落盘的疆域(城 + 桥)
       renderRail();                                              // 概念候选 + 恢复上次没安置完的预备桥（window 存活）
       window.addEventListener('pace-popup:atlas:stage', drainStage); // 抽卡/记一笔交接 → 落成预备桥
       drainStage();                                             // 地图刚打开、队列里已有 → 立即接住

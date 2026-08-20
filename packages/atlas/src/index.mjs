@@ -19,7 +19,7 @@
  *   路线图是把它落成 Karpathy/Obsidian 式的 `[[互链]]` markdown 笔记夹(见 store.mjs TODO)。
  */
 
-import { seedMap } from './store.mjs'
+import { loadState, saveState, LIB_NAMES } from './store.mjs'
 
 export const name = 'atlas'
 // llm:会话→候选概念/连线的抽取(compileSession,现为桩);connection:注册 RPC 通道(不碰会话日志)。
@@ -35,10 +35,13 @@ export const DEFAULTS = {
 export function apply(ctx, config = {}) {
   const cfg = { ...DEFAULTS, ...config }
 
-  // ── STORE:进程内地图状态(TODO 落成 markdown vault via store.mjs)──
-  const state = seedMap()              // { disciplines, nodes, edges, bridges }
+  // ── STORE:启动时从 ~/.dsh/atlas/territory.json 读回疆域;每次变更防抖落盘 ──
+  const state = loadState()            // { disciplines, nodes, edges, bridges }
   let seq = state._seq || 1000
   const nid = () => ++seq
+  let saveT = null
+  const persist = () => { state._seq = seq; clearTimeout(saveT); saveT = setTimeout(() => saveState(state), 250) }
+  ctx.effect(() => () => { clearTimeout(saveT); state._seq = seq; saveState(state) }, 'atlas persist flush')  // 卸载/重启前兜底刷盘
 
   const serialize = () => ({
     disciplines: state.disciplines,
@@ -88,7 +91,8 @@ export function apply(ctx, config = {}) {
         case 'classifyNote': {
           const { text, disciplines } = payload || {}
           if (!text) return err('classifyNote 需要 text')
-          const names = Array.isArray(disciplines) && disciplines.length ? disciplines : state.disciplines.map((d) => d.name)
+          const names = Array.isArray(disciplines) && disciplines.length ? disciplines
+            : (state.disciplines.length ? state.disciplines.map((d) => d.name) : LIB_NAMES)
           try {
             const classify = config.classifier || (await classifyMod()).makeClassifier(ctx, { ...cfg })
             const guess = await classify(text, names)
@@ -100,11 +104,15 @@ export function apply(ctx, config = {}) {
         }
 
         case 'addConcept': {
-          const { label, disc, sub, mastery } = payload || {}
+          const { label, disc, sub, mastery, src } = payload || {}
           if (!label || !disc) return err('addConcept 需要 label + disc')
           const d = ensureDiscipline(disc)
-          const n = { id: nid(), label, disc: d.key, sub: sub || '', mastery: typeof mastery === 'number' ? mastery : 0.45, src: '手动新建', aliases: [] }
+          // 幂等:同学科同名同细分的城已在 → 直接返回(前端恢复/重复开辟不落重复数据)
+          const exist = state.nodes.find((n) => n.label === label && n.disc === d.key && (n.sub || '') === (sub || ''))
+          if (exist) return ok({ node: exist, disciplines: state.disciplines })
+          const n = { id: nid(), label, disc: d.key, sub: sub || '', mastery: typeof mastery === 'number' ? mastery : 0.45, src: src || '手动新建', aliases: [] }
           state.nodes.push(n)
+          persist()
           return ok({ node: n, disciplines: state.disciplines })
         }
 
@@ -112,6 +120,7 @@ export function apply(ctx, config = {}) {
           const { name: dn } = payload || {}
           if (!dn) return err('createDiscipline 需要 name')
           const d = ensureDiscipline(dn)
+          persist()
           return ok({ discipline: d, disciplines: state.disciplines })
         }
 
@@ -126,6 +135,7 @@ export function apply(ctx, config = {}) {
           // 连线让两端更"懂"一点 → 疆域涨一圈(与前端一致)
           na.mastery = Math.min(1, (na.mastery || 0) + 0.05)
           nb.mastery = Math.min(1, (nb.mastery || 0) + 0.05)
+          persist()
           return ok({ edge: e, nodes: [na, nb] })
         }
 
@@ -135,6 +145,7 @@ export function apply(ctx, config = {}) {
           const anchorIds = (anchors || []).map((x) => (typeof x === 'number' ? x : (nodeByLabel(x) || {}).id)).filter(Boolean)
           const bridge = { id: nid(), title: title || '未命名桥', origin: origin || 'manual', anchors: anchorIds, entries: [], ts: nowTs(payload) }
           state.bridges.push(bridge)
+          persist()
           return ok({ bridge })
         }
         case 'addEntry': {
@@ -143,6 +154,7 @@ export function apply(ctx, config = {}) {
           if (!bridge) return err('addEntry: 找不到桥')
           const e = { id: nid(), kind: (entry && entry.kind) || 'term', text: (entry && entry.text) || '', src: (entry && entry.src) || '', ts: nowTs(payload) }
           bridge.entries.push(e)
+          persist()
           return ok({ bridge, entry: e })
         }
 
@@ -157,6 +169,7 @@ export function apply(ctx, config = {}) {
           if (!inbox) { inbox = { id: nid(), title, origin: 'card', discName: d ? d.name : '', anchors: [], entries: [], ts: nowTs(payload) }; state.bridges.push(inbox) }
           const e = { id: nid(), kind: 'card', text: hook + (expand ? '\n' + expand : ''), src: 'crosslens', ts: nowTs(payload) }
           inbox.entries.push(e)
+          persist()
           return ok({ bridge: inbox, entry: e })
         }
 
@@ -169,7 +182,34 @@ export function apply(ctx, config = {}) {
           // discA/discB:桥两端学科名(subA/subB=细到的 2 级学科);每条 addNote = 桥上的一条链接(entry)，带 kind + ref(记一笔回链)
           const bridge = { id: nid(), title: title || firstLine(text), origin: origin === 'card' ? 'card' : 'note', status: 'placed', conceptNames: concepts || [], discA: discA || '', discB: discB || '', subA: subA || '', subB: subB || '', anchors: anchorIds, entries: [{ id: nid(), kind: lk, text, ref: ref || null, src: lk === 'card' ? 'crosslens' : 'jiyibi', ts: nowTs(payload) }], ts: nowTs(payload) }
           state.bridges.push(bridge)
+          persist()
           return ok({ bridge })
+        }
+
+        // ── 删除:前端桥是"同两端并成一座",故按学科对删;链接按 (学科对, 原文) 删 ──
+        case 'removeBridgePair': {
+          const { discA, discB } = payload || {}
+          if (!discA || !discB) return err('removeBridgePair 需要 discA + discB')
+          const same = (b) => (b.discA === discA && b.discB === discB) || (b.discA === discB && b.discB === discA)
+          const before = state.bridges.length
+          state.bridges = state.bridges.filter((b) => !same(b))
+          persist()
+          return ok({ removed: before - state.bridges.length })
+        }
+        case 'removeLink': {
+          const { discA, discB, text } = payload || {}
+          if (!discA || !discB || !text) return err('removeLink 需要 discA + discB + text')
+          const same = (b) => (b.discA === discA && b.discB === discB) || (b.discA === discB && b.discB === discA)
+          let removed = 0
+          state.bridges.forEach((b) => {
+            if (!same(b) || !Array.isArray(b.entries)) return
+            const n = b.entries.length
+            b.entries = b.entries.filter((e) => e.text !== text)
+            removed += n - b.entries.length
+          })
+          state.bridges = state.bridges.filter((b) => !same(b) || (b.entries && b.entries.length))  // 链接删光的空桥一并清
+          persist()
+          return ok({ removed })
         }
 
         default:
