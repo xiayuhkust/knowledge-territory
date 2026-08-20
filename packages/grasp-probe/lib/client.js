@@ -131,10 +131,10 @@ window.__ModuleLoader__.load({
     }
     function GraspGate(props) { return useEnabled() ? h(GraspProbeDock, props) : null; }
 
-    exports.inject = ['slots', 'connection'];
+    exports.inject = ['slots', 'connection', 'locale'];   // locale = dsh 全局语言服务(client ctx 有门禁,须声明)
     exports.apply = function (ctx) {
-      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
-      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
+      // 双语:dsh 全局 locale 服务(已在 inject 声明;取不到时恒中文)。
+      getLoc = function () { try { return ctx.locale || null; } catch (e) { return null; } };
       // 只有 conversation.input.dock 槽存在时才挂(headless/无此槽的装配天然跳过)
       ctx.slots.inject('conversation.input.dock', function () {
         return ctx.slots.register(

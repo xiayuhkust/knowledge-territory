@@ -85,6 +85,11 @@ window.__ModuleLoader__.load({
       '🗺️ 打开知识疆域': '🗺️ Open Knowledge Territory',
       '月': '/',
       '日': '',
+      // 学科预选 tag 的显示名(与 atlas 的总库一级学科一致;存储仍用中文名,与疆域匹配)
+      '系统论': 'Systems Theory', '信息论': 'Information Theory', '经济学': 'Economics', '生物学': 'Biology',
+      '哲学': 'Philosophy', '心理学': 'Psychology', '物理学': 'Physics', '数学': 'Mathematics',
+      '计算机科学': 'Computer Science', '神经科学': 'Neuroscience', '语言学': 'Linguistics', '社会学': 'Sociology',
+      '历史学': 'History', '艺术': 'Art',
     };
     var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
     var boundT = null, dictRegistered = false;
@@ -227,8 +232,8 @@ window.__ModuleLoader__.load({
       }
 
       var picker = [];
-      disc.forEach(function (d) { picker.push(h('button', { key: 'on-' + d, style: chipOn, title: T('移除'), onClick: function () { toggle(d); } }, d + ' ×')); });
-      PRESETS.filter(function (d) { return disc.indexOf(d) < 0; }).forEach(function (d) { picker.push(h('button', { key: 'p-' + d, style: chip, onClick: function () { toggle(d); } }, '+ ' + d)); });
+      disc.forEach(function (d) { picker.push(h('button', { key: 'on-' + d, style: chipOn, title: T('移除'), onClick: function () { toggle(d); } }, T(d) + ' ×')); });
+      PRESETS.filter(function (d) { return disc.indexOf(d) < 0; }).forEach(function (d) { picker.push(h('button', { key: 'p-' + d, style: chip, onClick: function () { toggle(d); } }, '+ ' + T(d))); });
       picker.push(h('input', {
         key: 'in', style: Object.assign({}, textIn, { width: '130px' }), value: draft, placeholder: T('自定义，回车添加'),
         onChange: function (e) { setDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === 'Enter') { e.preventDefault(); addDraft(); } },
@@ -495,11 +500,11 @@ window.__ModuleLoader__.load({
       return h('div', { style: Object.assign({}, layer, { left: pos.x + 'px', top: pos.y + 'px' }) }, children);
     }
 
-    exports.inject = ['slots', 'connection'];
+    exports.inject = ['slots', 'connection', 'locale'];   // locale = dsh 全局语言服务(client ctx 有门禁,须声明)
     exports.apply = function (ctx) {
       rpcCall = function (channel, endpoint, payload) { return ctx.connection.rpc.call(channel, endpoint, payload || {}); };
-      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
-      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
+      // 双语:dsh 全局 locale 服务(已在 inject 声明;取不到时恒中文)。
+      getLoc = function () { try { return ctx.locale || null; } catch (e) { return null; } };
       // 只有 shell.overlay 槽存在时才挂(headless/无此槽的装配天然跳过)
       ctx.slots.inject('shell.overlay', function () {
         return ctx.slots.register({ name: 'shell.overlay', id: 'pace-hub', order: 10 }, Bar);

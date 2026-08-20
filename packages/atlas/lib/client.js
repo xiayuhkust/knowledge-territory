@@ -82,6 +82,23 @@ window.__ModuleLoader__.load({
       '开辟二级学科': 'opened as a state',
       '恢复疆域': 'restored from your territory',
       '退出知识疆域': 'Exit Knowledge Territory',
+      // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
+      //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
+      '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
+      '信息论': 'Information Theory', '编码理论': 'Coding Theory', '密码学': 'Cryptography', '数据压缩': 'Data Compression', '信道': 'Channels',
+      '经济学': 'Economics', '行为经济学': 'Behavioral Economics', '博弈论': 'Game Theory', '宏观经济': 'Macroeconomics', '微观经济': 'Microeconomics',
+      '生物学': 'Biology', '进化生物学': 'Evolutionary Biology', '生态学': 'Ecology', '分子生物学': 'Molecular Biology', '神经生物': 'Neurobiology',
+      '哲学': 'Philosophy', '认识论': 'Epistemology', '伦理学': 'Ethics', '逻辑学': 'Logic', '形而上学': 'Metaphysics',
+      '心理学': 'Psychology', '认知心理': 'Cognitive Psychology', '社会心理': 'Social Psychology', '发展心理': 'Developmental Psychology',
+      '物理学': 'Physics', '热力学': 'Thermodynamics', '量子力学': 'Quantum Mechanics', '统计力学': 'Statistical Mechanics', '相对论': 'Relativity',
+      '数学': 'Mathematics', '拓扑学': 'Topology', '概率论': 'Probability', '图论': 'Graph Theory', '代数': 'Algebra',
+      '计算机科学': 'Computer Science', '算法': 'Algorithms', '机器学习': 'Machine Learning', '分布式系统': 'Distributed Systems', '编程语言': 'Programming Languages',
+      '神经科学': 'Neuroscience', '神经可塑性': 'Neuroplasticity', '计算神经': 'Computational Neuroscience', '认知神经': 'Cognitive Neuroscience',
+      '语言学': 'Linguistics', '句法学': 'Syntax', '语义学': 'Semantics', '语用学': 'Pragmatics',
+      '社会学': 'Sociology', '社会网络': 'Social Networks', '组织理论': 'Organization Theory', '阶层流动': 'Social Mobility',
+      '历史学': 'History', '经济史': 'Economic History', '思想史': 'Intellectual History', '科技史': 'History of Science & Tech',
+      '艺术': 'Art', '音乐': 'Music', '建筑': 'Architecture', '绘画': 'Painting', '叙事': 'Narrative',
+      '未登陆': 'Frontier',
     };
     var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
     var boundT = null, dictRegistered = false;
@@ -352,6 +369,11 @@ window.__ModuleLoader__.load({
 
       const REDUCE = matchMedia("(prefers-reduced-motion:reduce)").matches;
       const now = () => performance.now();
+      // 学科/城名的显示翻译(挂载时定死,画布逐帧调用故不走 locale 服务):en → 查词典,查不到(自建)原样。
+      const dN = (function () {
+        try { const loc = getLoc(); if (loc && loc.getLocale().active === 'en') return (s) => (ATLAS_EN[s] || s); } catch (e) { }
+        return (s) => s;
+      })();
 
       // ── 暗色夜地图配色（明度受控：地块一律深色字）──
       // 鲜艳色块（参照日本行政区图）：land = 中等明度的鲜亮地色（黑字仍可读）；city = 更饱和的同色，用作"区域外"的大陆名 + 图例
@@ -614,8 +636,8 @@ window.__ModuleLoader__.load({
           const ox = mx - worldCx, oy = my - cy, ol = Math.hypot(ox, oy) || 1;
           const lx = Math.max(30, Math.min(WW - 30, mx + ox / ol * (rad + 40)));
           const ly = Math.max(20, Math.min(H - 18, my + oy / ol * (rad + 34)));
-          ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.strokeText(DISC[d].name, lx, ly); // 白色光晕托住
-          ctx.fillStyle = DISC[d].city; ctx.fillText(DISC[d].name, lx, ly);
+          ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.strokeText(dN(DISC[d].name), lx, ly); // 白色光晕托住
+          ctx.fillStyle = DISC[d].city; ctx.fillText(dN(DISC[d].name), lx, ly);
         }
         try { ctx.letterSpacing = '0px'; } catch (e) { } ctx.restore();
 
@@ -625,7 +647,7 @@ window.__ModuleLoader__.load({
           (subCen[k] = subCen[k] || { x: 0, y: 0, n: 0, nm: n.sub }); subCen[k].x += n.x; subCen[k].y += n.y; subCen[k].n++;
         });
         ctx.save(); ctx.textAlign = "center"; ctx.font = 'italic 500 11.5px ' + ff('--serif'); ctx.fillStyle = 'rgba(20,17,11,.5)';
-        for (const k in subCen) { const c = subCen[k]; if (c.n < 2) continue; ctx.fillText('· ' + c.nm + ' ·', c.x / c.n, c.y / c.n + 16); }
+        for (const k in subCen) { const c = subCen[k]; if (c.n < 2) continue; ctx.fillText('· ' + dN(c.nm) + ' ·', c.x / c.n, c.y / c.n + 16); }
         ctx.restore();
 
         // 只画跨学科航路（同学科已由同一块大陆表达，不再连线，减少杂乱）
@@ -701,8 +723,8 @@ window.__ModuleLoader__.load({
         const fs = (10 + n.mastery * 2.5).toFixed(1);   // 城名(似都道府县名):黑色无衬线、小号刚好
         ctx.font = (n.mastery >= .6 ? '600 ' : '500 ') + fs + 'px ' + ff('--sans');
         ctx.globalAlpha = hov ? 1 : (0.72 + n.mastery * 0.28);
-        ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.strokeStyle = HALO; ctx.strokeText(n.label, n.x, n.y - 9);
-        ctx.fillStyle = hov ? "#000" : LABEL_DARK; ctx.fillText(n.label, n.x, n.y - 9);
+        ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.strokeStyle = HALO; ctx.strokeText(dN(n.label), n.x, n.y - 9);
+        ctx.fillStyle = hov ? "#000" : LABEL_DARK; ctx.fillText(dN(n.label), n.x, n.y - 9);
         ctx.globalAlpha = 1;
         ctx.restore();
       }
@@ -754,7 +776,7 @@ window.__ModuleLoader__.load({
       function showHover(n, x, y) {
         const d = DISC[n.disc];
         hover.innerHTML = '<span class="hc-master">' + T('掌握 ') + Math.round(n.mastery * 100) + '%</span><h4>' + n.label + '</h4>' +
-          '<div class="hc-disc" style="color:' + d.city + '">● ' + d.name + (n.sub ? ' · ' + n.sub : '') + '</div>' +
+          '<div class="hc-disc" style="color:' + d.city + '">● ' + esc(dN(d.name)) + (n.sub ? ' · ' + esc(dN(n.sub)) : '') + '</div>' +
           '<div class="bar"><i style="width:' + (n.mastery * 100) + '%;background:' + d.city + '"></i></div>' +
           '<div class="hc-src">' + (n.src || "—") + '</div>';
         hover.style.left = Math.min(x + 14, stage.clientWidth - 222) + "px";
@@ -765,7 +787,7 @@ window.__ModuleLoader__.load({
       const candBox = byId("candidates");
       function discChip(name) {
         const k = name ? matchDiscByName(name) : null, dot = k ? DISC[k].city : 'rgba(120,122,128,.55)';
-        return '<span class="chip" style="--dot:' + dot + '">' + esc(name || '?') + '</span>';
+        return '<span class="chip" style="--dot:' + dot + '">' + esc(name ? dN(name) : '?') + '</span>';
       }
       function renderRail() {
         candBox.innerHTML = "";
@@ -863,7 +885,7 @@ window.__ModuleLoader__.load({
       function renderLegend() {
         legend.innerHTML = order.map(k => {
           const on = present.has(k);
-          return '<div class="lg' + (on ? "" : " off") + '"><i style="background:' + rgb(DISC[k].land) + '"></i>' + DISC[k].name + '</div>';
+          return '<div class="lg' + (on ? "" : " off") + '"><i style="background:' + rgb(DISC[k].land) + '"></i>' + esc(dN(DISC[k].name)) + '</div>';
         }).join("");
       }
       const toastEl = byId("toast"); let toastT = null;
@@ -956,7 +978,7 @@ window.__ModuleLoader__.load({
       }
       function showBridgeHover(b, x, y) {
         const list = b.links.slice(-4).map(l => '<div style="font-size:11px;opacity:.82;margin-top:3px;line-height:1.4">' + linkIcon(l.kind) + ' ' + esc(short(l.text, 36)) + '</div>').join("") || '<div style="font-size:11px;opacity:.55;margin-top:3px">' + T('（还没有链接）') + '</div>';
-        hover.innerHTML = '<span class="hc-master">' + (b.links.length || 0) + T(' 条链接') + '</span><h4>' + esc(b.discA || '?') + ' ⟷ ' + esc(b.discB || '?') + '</h4>' +
+        hover.innerHTML = '<span class="hc-master">' + (b.links.length || 0) + T(' 条链接') + '</span><h4>' + esc(dN(b.discA) || '?') + ' ⟷ ' + esc(dN(b.discB) || '?') + '</h4>' +
           '<div class="hc-disc" style="color:rgba(150,102,20,1)">' + T('◈ 桥') + '</div>' + list +
           '<div style="font-size:10.5px;opacity:.5;margin-top:5px">' + T('点开：看链接、改两端') + '</div>';
         hover.style.left = Math.min(x + 14, stage.clientWidth - 222) + "px";
@@ -1057,17 +1079,17 @@ window.__ModuleLoader__.load({
         const gk = getDiscKey(nm);
         if (gk.created) { const cap = N(nm, gk.key, 0.42, T('新建学科')); placeNear(cap); settle(80); persistCity(nm, nm, ''); }
         rebuild(false); renderLegend(); renderOverview(); updateReadout();
-        toast(gk.created ? TF('开辟了「{0}」大陆', esc(nm)) : TF('「{0}」已在图上', esc(nm)), 'plain', 2400);
+        toast(gk.created ? TF('开辟了「{0}」大陆', esc(dN(nm))) : TF('「{0}」已在图上', esc(dN(nm))), 'plain', 2400);
         return gk;
       }
       function subOpened(k, s) { return nodes.some(n => !n.frontier && n.disc === k && n.sub === s); }
       function foundSub(dn, sn) {                                  // 开辟一片"州"（二级学科；父大陆没开就先开）
         const gk = getDiscKey(dn);
         if (gk.created) { const cap = N(dn, gk.key, 0.42, T('新建学科')); placeNear(cap); persistCity(dn, dn, ''); }
-        if (subOpened(gk.key, sn)) { toast(TF('「{0}」已在图上', esc(sn)), 'plain', 2000); return; }
+        if (subOpened(gk.key, sn)) { toast(TF('「{0}」已在图上', esc(dN(sn))), 'plain', 2000); return; }
         const c = N(sn, gk.key, 0.4, T('开辟二级学科')); c.sub = sn; placeNear(c); persistCity(sn, dn, sn);
         settle(120); rebuild(false); renderLegend(); renderOverview(); updateReadout();
-        toast(TF('在「{0}」开辟了「{1}」州', esc(dn), esc(sn)), 'plain', 2400);
+        toast(TF('在「{0}」开辟了「{1}」州', esc(dN(dn)), esc(dN(sn))), 'plain', 2400);
       }
       function renderOverview() {
         const ov = byId('overview'); if (!ov) return;
@@ -1085,10 +1107,10 @@ window.__ModuleLoader__.load({
             ? '<div class="ov-newsub"><input class="chipin" id="ovSubNew" data-d="' + esc(nm) + '" placeholder="' + T('二级学科名，回车开辟（Esc 取消）') + '"></div>'
             : '<div class="ov-newsub"><button class="ov-addsub" data-add="' + esc(nm) + '">' + T('＋ 开辟州') + '</button></div>';
           return '<div class="ov-item' + (opened ? '' : ' ov-off') + '" data-nm="' + esc(nm) + '" style="background:' + rgb(land) + ';color:' + ink + '">' +
-            '<div class="ov-name">' + esc(nm) + (opened ? '' : '<span class="ov-tag">' + T('未开辟') + '</span>') + '</div>' +
+            '<div class="ov-name">' + esc(dN(nm)) + (opened ? '' : '<span class="ov-tag">' + T('未开辟') + '</span>') + '</div>' +
             (subs.length ? '<div class="ov-subs">' + subs.map(s => {
               const on = mk && subOpened(mk, s);                   // 二级学科也可点开辟：未开的带＋，已开的亮显
-              return '<span class="' + (on ? 'on' : '') + '" data-d="' + esc(nm) + '" data-s="' + esc(s) + '" title="' + (on ? T('已在图上') : T('点击开辟这片州')) + '">' + (on ? '' : '＋ ') + esc(s) + '</span>';
+              return '<span class="' + (on ? 'on' : '') + '" data-d="' + esc(nm) + '" data-s="' + esc(s) + '" title="' + (on ? T('已在图上') : T('点击开辟这片州')) + '">' + (on ? '' : '＋ ') + esc(dN(s)) + '</span>';
             }).join('') + '</div>' : '') +
             newsub + '</div>';
         }).join('');
@@ -1119,7 +1141,7 @@ window.__ModuleLoader__.load({
       function endSub(slot) { return (slot === 'a' ? bp.target.aSub : bp.target.bSub) || ''; }
       function endChip(slot) {
         const nm = endName(slot), sub = endSub(slot), k = endKey(slot), dot = k ? DISC[k].city : 'rgba(120,122,128,.55)';
-        const label = nm ? esc(nm) + (sub ? '·' + esc(sub) : '') : T('选一端');
+        const label = nm ? esc(dN(nm)) + (sub ? '·' + esc(dN(sub)) : '') : T('选一端');
         return '<span class="endchip' + (bp.editEnd === slot ? ' open' : '') + '" data-end="' + slot + '" style="--dot:' + dot + '">' +
           '<i class="ec-dot" style="background:' + dot + '"></i>' + label + ' ▾</span>';
       }
@@ -1129,7 +1151,7 @@ window.__ModuleLoader__.load({
         const cur = endName(slot), curSub = endSub(slot);
         let inner = '';
         discChoices().forEach(it => {
-          inner += '<span class="type discChip' + (cur === it.name ? ' sel' : '') + '" data-pick="' + esc(it.name) + '">' + esc(it.name) + '</span>';
+          inner += '<span class="type discChip' + (cur === it.name ? ' sel' : '') + '" data-pick="' + esc(it.name) + '">' + esc(dN(it.name)) + '</span>';
         });
         let html = '<div class="endchooser">' + inner + '<input class="chipin" id="endnew" placeholder="' + T('＋新学科，回车') + '"></div>';
         if (cur) {
@@ -1137,8 +1159,8 @@ window.__ModuleLoader__.load({
           const subs = [...new Set([...libSubs(cur), ...(k ? subsOf(k) : [])])];
           if (subs.length) {
             html += '<div class="endchooser"><span class="pk-sub" style="margin:0;flex-basis:100%">' + T('细到 2 级学科（可选，连接点会落到那片州）') + '</span>' +
-              '<span class="type subChip' + (!curSub ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="">' + esc(cur) + T('·大陆中央') + '</span>' +
-              subs.map(s => '<span class="type subChip' + (curSub === s ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="' + esc(s) + '">' + esc(s) + '</span>').join('') + '</div>';
+              '<span class="type subChip' + (!curSub ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="">' + esc(dN(cur)) + T('·大陆中央') + '</span>' +
+              subs.map(s => '<span class="type subChip' + (curSub === s ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="' + esc(s) + '">' + esc(dN(s)) + '</span>').join('') + '</div>';
           }
         }
         return html;
@@ -1202,7 +1224,7 @@ window.__ModuleLoader__.load({
           const b = commitBridge(bp.target.links, ka, kb, null, bp.target.aSub, bp.target.bSub);
           bp.target = b; bp.isDraft = false;
           if (!REDUCE) flare(b.x, b.y); if (panable()) { camX = b.x - W / 2; clampCam(); }
-          toast(T('桥已安置 —— ') + '<b>' + esc(DISC[ka].name) + '</b> ⟷ <b>' + esc(DISC[kb].name) + '</b>', '', 2600);
+          toast(T('桥已安置 —— ') + '<b>' + esc(dN(DISC[ka].name)) + '</b> ⟷ <b>' + esc(dN(DISC[kb].name)) + '</b>', '', 2600);
         }
       }
       function commitBridge(links, ka, kb, except, aSub, bSub) {          // 同两端已有桥 → 并链接；否则新建
@@ -1358,14 +1380,15 @@ window.__ModuleLoader__.load({
     }
     function AtlasGate(props) { return useEnabled() ? h(AtlasLauncher, props) : null; }
 
-    exports.inject = ['slots', 'connection'];
+    exports.inject = ['slots', 'connection', 'locale'];   // locale = dsh 全局语言服务(client ctx 有门禁,必须声明才可访问)
     exports.apply = function (ctx) {
       // TODO(RPC): 接线后用这个闭包把 runAtlas 里的内存 mock 换成后端图数据,例如
       //   rpcCall('/atlas','getMap',{sessionId}) / 'compileSession' / 'connect' / 'createConcept'。
       rpcCall = function (channel, endpoint, payload) { return ctx.connection.rpc.call(channel, endpoint, payload || {}); };
       void rpcCall;
-      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
-      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
+      // 双语:dsh 全局 locale 服务。client ctx 有 inject 门禁:ctx.get 不暴露、未声明的服务属性直接拒绝,
+      // 故须在 exports.inject 里声明 'locale' 再走属性访问(取不到时恒中文)。
+      getLoc = function () { try { return ctx.locale || null; } catch (e) { return null; } };
       // 只有 shell.overlay 槽存在时才挂(headless/无此槽的装配天然跳过)。
       ctx.slots.inject('shell.overlay', function () {
         return ctx.slots.register({ name: 'shell.overlay', id: 'atlas', order: 12 }, AtlasGate);
