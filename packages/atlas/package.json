@@ -1,0 +1,24 @@
+{
+  "name": "dsh-plugin-atlas",
+  "version": "0.1.0",
+  "description": "Knowledge-territory map for DeepSeek Harness: session conversations grow into a living map of concept 'cities' clustered into discipline 'continents', with typed routes and user-built 'bridges' (small containers holding your own notes and cross-discipline cards). AI proposes adjacencies; you light the connection. Data flows over an in-memory Connection RPC channel and a local markdown vault, never the session log.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "src"],
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "connection-rpc", "knowledge-map", "zettelkasten", "cartography", "pace-popups"],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "*"
+  }
+}

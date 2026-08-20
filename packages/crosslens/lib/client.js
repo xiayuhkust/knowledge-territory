@@ -15,7 +15,8 @@ window.__ModuleLoader__.load({
     var h = React.createElement;
 
     var KEY = 'crosslens.disciplines';
-    var PRESETS = ['生态学', '经济学', '心理学', '物理学', '数学', '历史', '音乐', '建筑学', '生物学', '哲学'];
+    // 与知识疆域共享同一套学科结构(atlas/lib/client.js 的 DISC_LIB 一级学科),抽卡与疆域的大陆一一对应。
+    var PRESETS = ['系统论', '信息论', '经济学', '生物学', '哲学', '心理学', '物理学', '数学', '计算机科学', '神经科学', '语言学', '社会学', '历史学', '艺术'];
 
     function loadDisc() { try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a.filter(function (x) { return typeof x === 'string' && x.trim(); }) : []; } catch (e) { return []; } }
     function saveDisc(a) { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { /* ignore */ } }

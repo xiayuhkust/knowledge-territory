@@ -25,7 +25,8 @@ export const name = 'crosslens'
 export const inject = ['llm', 'connection']
 
 // provider/model 仅兜底:从 assistant/message.source 探会话真实模型并覆盖(跟随用户所选模型)。
-// reasoningEffort 'off':抽卡是短生成,思维链纯浪费——实测 off 质量不掉、快 6×、省 ~5/6 推理 token。
+// reasoningEffort 'off':抽卡是短生成,思维链纯浪费。dsh-llm-deepseek 适配器只认 off/high/max,
+// 'off' → thinking 关闭(不往 wire 发 reasoning_effort),正是我们要的。
 export const DEFAULTS = { provider: 'deepseek-official', model: 'deepseek-v4-flash', bufferSize: 8, reasoningEffort: 'off' }
 
 export function apply(ctx, config = {}) {

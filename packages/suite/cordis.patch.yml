@@ -1,8 +1,10 @@
 # dsh bundle 补丁层:一条 insert 挂上全套弹窗。
 # 用户 `dsh plugin add dsh-pace-popups` 即把本层并入 profile 的 bundles,四个一起挂载。
 # 要关掉其中某个:在 profile 自己的 cordis.patch.yml 里加 `- id: <id>` + `disabled: true`
-# (profile 层在所有 bundle 层之后应用,同 id 后写覆盖);或直接在浮窗「节奏台」⚙ 里关。
+# (profile 层在所有 bundle 层之后应用,同 id 后写覆盖);或直接在浮窗「知识疆域」⚙ 里关。
 - insert:
+    - id: pace-skin
+      name: dsh-plugin-pace-skin        # 先注入共享皮肤(--pp-* 令牌 + .pp-* 工具类)
     - id: grasp-probe
       name: dsh-plugin-grasp-probe
       config:
@@ -13,5 +15,7 @@
       name: dsh-plugin-crosslens
     - id: jiyibi
       name: dsh-plugin-jiyibi
+    - id: atlas
+      name: dsh-plugin-atlas
     - id: pace-hub
       name: dsh-plugin-pace-hub

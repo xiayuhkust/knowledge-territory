@@ -1,0 +1,21 @@
+{
+  "name": "dsh-plugin-pace-skin",
+  "version": "0.1.0",
+  "description": "Shared visual skin for the dsh-pace-popups suite: a no-UI plugin that injects one set of design tokens (--pp-*) and utility classes (.pp-*) into the page. Editorial 'lieflat' texture — hairline strokes, generous whitespace, ledger rails, flat surfaces, brightness-carries-hierarchy — while keeping the suite's color (discipline hues + a single gold accent). Load it once; every other popup consumes the same tokens.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": { "default": "./src/index.mjs" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "src"],
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "license": "MIT",
+  "keywords": ["dsh-plugin", "deepseek-harness", "design-tokens", "skin", "pace-popups"]
+}

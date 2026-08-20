@@ -94,7 +94,8 @@ window.__ModuleLoader__.load({
     // ——弹窗总开关——共享 localStorage 标志(浮窗 hub 用它开关各弹窗;缺省=开,只有显式 '0' 才关)。
     // Gate 恒定调用 useEnabled(hook 顺序稳),被关时不渲染真组件。跨标签听 storage、同标签听 pace-popup:changed。
     var PACE_KEY = 'pace-popup:enabled:grasp';
-    function paceEnabled() { try { return localStorage.getItem(PACE_KEY) !== '0'; } catch (e) { return true; } }
+    // 非核心功能,缺省关(null=没设过→关);在浮窗里显式开('1')才出现。与 pace-hub 的 DEFAULT_OFF 一致。
+    function paceEnabled() { try { var v = localStorage.getItem(PACE_KEY); return v === null ? false : v !== '0'; } catch (e) { return false; } }
     function useEnabled() {
       var s = React.useState(paceEnabled); var on = s[0], set = s[1];
       React.useEffect(function () {

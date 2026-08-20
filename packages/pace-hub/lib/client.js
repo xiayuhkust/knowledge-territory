@@ -24,21 +24,24 @@ window.__ModuleLoader__.load({
     // apply 里注入的 RPC 调用闭包(工厂作用域,apply 先于渲染执行故渲染时已就绪)。
     var rpcCall = null;
 
-    // ——受管弹窗(slug 须与各弹窗 client 的 PACE_KEY 尾段一致)——
+    // ——受管弹窗(slug 须与各弹窗 client 的 PACE_KEY 尾段一致;主功能在前,反应式辅助垫底)——
     var TOGGLES = [
-      { slug: 'grasp', label: '停一下', note: '在对话里出现(反应式)' },
+      { slug: 'atlas', label: '知识疆域', note: '从这里置顶打开(全屏地图)' },
       { slug: 'crosslens', label: '跨学科抽卡', note: '在这里展开' },
       { slug: 'jiyibi', label: '记一笔', note: '在这里展开' },
+      { slug: 'grasp', label: '停一下', note: '在对话里出现(反应式) · 默认关' },
     ];
     // 浮窗内承载 UI 的工具(grasp 不在此:它的 UI 留在对话 dock)
     var TOOLS = [
-      { slug: 'crosslens', tab: '🎲 抽卡' },
+      { slug: 'crosslens', tab: '🎲 跨学科抽卡' },
       { slug: 'jiyibi', tab: '✍ 记一笔' },
     ];
 
     // ——开关标志——
+    // 停一下(grasp)非核心功能,缺省关;其余缺省开。显式 '1'/'0' 始终优先。
+    var DEFAULT_OFF = { grasp: true };
     function keyOf(slug) { return 'pace-popup:enabled:' + slug; }
-    function isOn(slug) { try { return localStorage.getItem(keyOf(slug)) !== '0'; } catch (e) { return true; } }
+    function isOn(slug) { try { var v = localStorage.getItem(keyOf(slug)); return v === null ? !DEFAULT_OFF[slug] : v !== '0'; } catch (e) { return !DEFAULT_OFF[slug]; } }
     function setOn(slug, on) {
       try { localStorage.setItem(keyOf(slug), on ? '1' : '0'); } catch (e) { }
       try { window.dispatchEvent(new CustomEvent('pace-popup:changed', { detail: { slug: slug } })); } catch (e) { }
@@ -52,19 +55,34 @@ window.__ModuleLoader__.load({
     function short(s, n) { return String(s || '').replace(/\s+/g, ' ').slice(0, n); }
 
     // ——样式(Canvas/CanvasText 系统色随亮/暗自适应)——
-    var layer = { position: 'fixed', zIndex: 2147483000, pointerEvents: 'auto', width: 'max-content', font: '12px/1.5 system-ui, sans-serif', color: 'CanvasText' };
-    var handle = { position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', cursor: 'grab', background: 'Canvas', color: 'CanvasText', border: '1px solid rgba(128,128,128,0.35)', boxShadow: '0 2px 10px rgba(0,0,0,0.18)', touchAction: 'none', whiteSpace: 'nowrap', userSelect: 'none' };
-    var card = { position: 'absolute', width: '320px', maxHeight: '62vh', overflowY: 'auto', overflowX: 'hidden', padding: '10px 12px', borderRadius: '14px', background: 'Canvas', color: 'CanvasText', border: '1px solid rgba(128,128,128,0.35)', boxShadow: '0 6px 22px rgba(0,0,0,0.22)', boxSizing: 'border-box' };
-    var tabBar = { display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px', borderBottom: '1px solid rgba(128,128,128,0.25)', paddingBottom: '6px' };
-    var tabBtn = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid rgba(128,128,128,0.35)', borderRadius: '999px', padding: '1px 10px', cursor: 'pointer', opacity: 0.7 };
-    var tabOn = Object.assign({}, tabBtn, { opacity: 1, borderColor: 'currentColor', borderWidth: '1px', fontWeight: 600 });
-    var linkBtn = { font: 'inherit', color: 'inherit', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', opacity: 0.72 };
-    var pill = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid currentColor', borderRadius: '999px', padding: '0 10px', cursor: 'pointer', lineHeight: '18px', height: '18px' };
-    var chip = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid currentColor', borderRadius: '999px', padding: '0 8px', cursor: 'pointer', opacity: 0.8 };
-    var chipOn = Object.assign({}, chip, { opacity: 1, borderWidth: '2px' });
-    var textIn = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid currentColor', borderRadius: '8px', padding: '5px 8px', opacity: 0.9, width: '100%', boxSizing: 'border-box' };
-    var hint = { opacity: 0.55, fontSize: '11px' };
-    var dim = { opacity: 0.6 };
+    // ——样式:统一到共享皮肤 pace-skin 的 --pp-* 令牌(与知识疆域一致;深浅由皮肤处理)——
+    var layer = { position: 'fixed', zIndex: 2147483000, pointerEvents: 'auto', width: 'max-content', font: '12px/1.5 var(--pp-sans)', color: 'var(--pp-ink)' };
+    var handle = { position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 11px', borderRadius: '999px', cursor: 'grab', background: 'var(--pp-surface)', color: 'var(--pp-ink)', border: '1px solid var(--pp-hairline)', boxShadow: 'var(--pp-shadow)', backdropFilter: 'blur(6px)', touchAction: 'none', whiteSpace: 'nowrap', userSelect: 'none' };
+    var card = { position: 'absolute', width: '324px', maxHeight: '62vh', overflowY: 'auto', overflowX: 'hidden', padding: '12px 13px', borderRadius: 'var(--pp-r)', background: 'var(--pp-surface)', color: 'var(--pp-ink)', border: '1px solid var(--pp-hairline)', boxShadow: 'var(--pp-shadow)', backdropFilter: 'blur(8px)', boxSizing: 'border-box' };
+    var tabBar = { display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px', borderBottom: '1px solid var(--pp-hairline)', paddingBottom: '6px' };
+    var tabBtn = { font: 'inherit', color: 'var(--pp-ink-dim)', background: 'transparent', border: '1px solid var(--pp-hairline)', borderRadius: '999px', padding: '2px 10px', cursor: 'pointer' };
+    var tabOn = Object.assign({}, tabBtn, { color: 'var(--pp-ink)', borderColor: 'var(--pp-accent)', fontWeight: 600 });
+    var linkBtn = { font: 'inherit', color: 'var(--pp-ink-dim)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' };
+    // 收进疆域 = 主行动，用 Gumroad 粉填充，非常醒目
+    var cta = { font: 'inherit', fontWeight: 700, color: '#151515', background: '#FF90E8', border: 'none', borderRadius: '8px', padding: '5px 13px', cursor: 'pointer', lineHeight: '1.2' };
+    var ctaSm = Object.assign({}, cta, { padding: '2px 10px', borderRadius: '999px', fontSize: '11px' });
+    var ctaDone = { font: 'inherit', fontWeight: 600, color: 'var(--pp-ink-dim)', background: 'transparent', border: '1px solid var(--pp-hairline)', borderRadius: '8px', padding: '5px 13px', cursor: 'default', lineHeight: '1.2' };
+    var ctaDoneSm = Object.assign({}, ctaDone, { padding: '2px 10px', borderRadius: '999px', fontSize: '11px' });
+    var pill = { font: 'inherit', color: 'var(--pp-ink)', background: 'transparent', border: '1px solid var(--pp-hairline-strong)', borderRadius: '999px', padding: '0 10px', cursor: 'pointer', lineHeight: '18px', height: '18px' };
+    var chip = { font: 'inherit', color: 'var(--pp-ink-dim)', background: 'transparent', border: '1px solid var(--pp-hairline)', borderRadius: '999px', padding: '1px 8px', cursor: 'pointer' };
+    var chipOn = Object.assign({}, chip, { color: 'var(--pp-ink)', borderColor: 'var(--pp-accent)' });
+    var textIn = { font: 'inherit', color: 'var(--pp-ink)', background: 'var(--pp-surface-2)', border: '1px solid var(--pp-hairline)', borderRadius: '8px', padding: '5px 8px', width: '100%', boxSizing: 'border-box' };
+    var hint = { color: 'var(--pp-ink-faint)', fontSize: '11px' };
+    var dim = { color: 'var(--pp-ink-dim)' };
+    // 知识疆域置顶入口:派发全局事件,由 atlas 插件监听打开全屏地图。
+    var atlasPin = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', boxSizing: 'border-box', padding: '8px', marginBottom: '9px', borderRadius: 'var(--pp-r-sm)', border: '1px solid var(--pp-accent)', background: 'transparent', color: 'var(--pp-ink)', font: 'inherit', fontWeight: 600, cursor: 'pointer' };
+    function openAtlas() { try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:open')); } catch (e) { } }
+    // 抽卡/记一笔 → 知识疆域的"预备桥"：压进 window 队列 + 打开地图 + 通知地图排空（地图刚开也不丢）。
+    function stageToAtlas(origin, title, text, ref) {
+      try { (window.__atlasDraftQueue__ = window.__atlasDraftQueue__ || []).push({ origin: origin, title: title, text: text, ref: ref || null }); } catch (e) { }
+      try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:open')); } catch (e) { }
+      try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:stage')); } catch (e) { }
+    }
 
     // ============ 跨学科抽卡 面板(移自 crosslens dock)============
     var DKEY = 'crosslens.disciplines';
@@ -96,6 +114,7 @@ window.__ModuleLoader__.load({
       var ls = React.useState(false); var loading = ls[0], setLoading = ls[1];
       var xs = React.useState(false); var showExp = xs[0], setShowExp = xs[1];
       var ps = React.useState(false); var copied = ps[0], setCopied = ps[1];
+      var as = React.useState(false); var atlased = as[0], setAtlased = as[1];  // 已收进知识疆域?
 
       function commit(next) { setDisc(next); saveDisc(next); }
       function toggle(d) { commit(disc.indexOf(d) >= 0 ? disc.filter(function (x) { return x !== d; }) : disc.concat([d])); }
@@ -112,7 +131,7 @@ window.__ModuleLoader__.load({
       }
       function drawCard() {
         if (loading || !rpcCall) return;
-        setLoading(true); setShowExp(false); setCopied(false); setCard(null);
+        setLoading(true); setShowExp(false); setCopied(false); setAtlased(false); setCard(null);
         Promise.resolve(rpcCall('/crosslens', 'associate', { sessionId: sessionId, disciplines: disc.slice() })).then(function (r) {
           setCard((r && r.ok) ? (r.value || 'none') : 'none');
         }).catch(function () { setCard('none'); }).then(function () { setLoading(false); });
@@ -121,6 +140,13 @@ window.__ModuleLoader__.load({
         if (!cardv || cardv === 'none') return;
         var txt = (cardv.offlist && cardv.discipline ? '(列表外·' + cardv.discipline + ') ' : '') + cardv.hook + (cardv.expand ? '\n' + cardv.expand : '');
         try { navigator.clipboard.writeText(txt); setCopied(true); setTimeout(function () { setCopied(false); }, 1500); } catch (e) { }
+      }
+      // 收进知识疆域:抽的卡作为"预备桥"落到疆域(AI 判两端、你手点安置)
+      function toAtlas() {
+        if (!cardv || cardv === 'none' || atlased) return;
+        var text = cardv.hook + (cardv.expand ? '\n' + cardv.expand : '');
+        stageToAtlas('card', cardv.hook, text);
+        setAtlased(true);
       }
 
       var picker = [];
@@ -150,6 +176,7 @@ window.__ModuleLoader__.load({
         var acts = [];
         if (cardv.expand && !showExp) acts.push(h('button', { key: 'e', style: linkBtn, onClick: function () { setShowExp(true); } }, '展开一点 ›'));
         acts.push(h('button', { key: 'c', style: linkBtn, onClick: copyCard }, copied ? '已复制' : '复制'));
+        acts.push(h('button', { key: 'atl', style: atlased ? ctaDone : cta, title: '把这张卡收进知识疆域', onClick: toAtlas }, atlased ? '已收进疆域 ✓' : '🗺 收进疆域'));
         kids.push(h('div', { key: 'act', style: { display: 'flex', gap: '12px', marginTop: '6px' } }, acts));
       }
       return h('div', null, kids);
@@ -167,6 +194,7 @@ window.__ModuleLoader__.load({
       var lsx = React.useState(null); var marks = lsx[0], setMarks = lsx[1];
       var eo = React.useState(null); var openId = eo[0], setOpenId = eo[1];      // 哪条笔记展开了"当时的问答"(一次一条)
       var cq = React.useState(null); var copiedId = cq[0], setCopiedId = cq[1];
+      var aq = React.useState(null); var atlasedId = aq[0], setAtlasedId = aq[1]; // 哪条笔记刚收进疆域
       var vw = React.useState('time'); var view = vw[0], setView = vw[1];        // 翻本子视图:'time' 按时间(默认) | 'session' 按会话索引
 
       function refresh(q) { if (!rpcCall) return; Promise.resolve(rpcCall('/jiyibi', 'list', { query: q || '' })).then(function (r) { setMarks(r && r.ok ? (r.value || []) : []); }).catch(function () { setMarks([]); }); }
@@ -184,6 +212,11 @@ window.__ModuleLoader__.load({
         }).catch(function () { setBusy(false); });
       }
       function del(id) { if (!rpcCall) return; Promise.resolve(rpcCall('/jiyibi', 'remove', { id: id })).then(function () { refresh(query); }).catch(function () { }); }
+      // 收进知识疆域:笔记作为"预备桥"落到疆域,AI 判两端、你在图上手点安置(确认那一步才持久化)。
+      function noteToAtlas(m) {
+        stageToAtlas('note', m.note, m.note, { noteId: m.id, sessionId: m.sessionId, ts: m.ts });
+        setAtlasedId(m.id); setTimeout(function () { setAtlasedId(null); }, 1600);
+      }
 
       var kids = [];
       // 写
@@ -200,13 +233,13 @@ window.__ModuleLoader__.load({
       ]));
       kids.push(h('div', { key: 'note', style: Object.assign({ marginTop: '3px' }, hint) }, '只写你的话——AI 说的那句它自有日志,这本子只留你的意义。'));
       // 翻本子
-      kids.push(h('div', { key: 'hr', style: { borderTop: '1px solid rgba(128,128,128,0.25)', margin: '9px 0 7px' } }));
+      kids.push(h('div', { key: 'hr', style: { borderTop: '1px solid var(--pp-hairline)', margin: '9px 0 7px' } }));
       kids.push(h('input', {
         key: 'q', style: textIn, value: query, placeholder: '翻本子…（关键词,回车搜）',
         onChange: function (e) { setQuery(e.target.value); }, onKeyDown: function (e) { if (e.key === 'Enter') { e.preventDefault(); refresh(query); } },
       }));
       // 视图切换:按时间(默认)/ 按会话索引
-      var vpill = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid rgba(128,128,128,0.35)', borderRadius: '999px', padding: '0 9px', cursor: 'pointer', fontSize: '11px', lineHeight: '18px', opacity: 0.65 };
+      var vpill = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid var(--pp-hairline-strong)', borderRadius: '999px', padding: '0 9px', cursor: 'pointer', fontSize: '11px', lineHeight: '18px', opacity: 0.65 };
       var vpillOn = Object.assign({}, vpill, { opacity: 1, borderColor: 'currentColor', fontWeight: 600 });
       kids.push(h('div', { key: 'vm', style: { display: 'flex', gap: '6px', marginTop: '6px' } }, [
         h('button', { key: 't', style: (view === 'time' ? vpillOn : vpill), onClick: function () { setView('time'); } }, '按时间'),
@@ -224,6 +257,7 @@ window.__ModuleLoader__.load({
         ];
         var acts = [];
         if (hasQA) acts.push(h('button', { key: 'q', style: linkMini, onClick: function () { setOpenId(isOpen ? null : m.id); } }, isOpen ? '收起' : '看当时的问答 ›'));
+        acts.push(h('button', { key: 'atl', style: atlasedId === m.id ? ctaDoneSm : ctaSm, title: '把这一笔收进知识疆域', onClick: function () { noteToAtlas(m); } }, atlasedId === m.id ? '已收进疆域 ✓' : '🗺 收进疆域'));
         acts.push(h('button', { key: 'd', style: Object.assign({}, linkMini, { opacity: 0.5 }), onClick: function () { del(m.id); } }, '删'));
         ik.push(h('div', { key: 'act', style: { display: 'flex', gap: '14px', marginTop: '2px' } }, acts));
         if (isOpen && hasQA) {
@@ -247,7 +281,7 @@ window.__ModuleLoader__.load({
           var gm = groups[sid];
           var isCur = sessionId && sid === sessionId;
           return h('div', { key: sid, style: { marginTop: '9px' } }, [
-            h('div', { key: 'h', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', borderBottom: '1px solid rgba(128,128,128,0.25)', paddingBottom: '2px', marginBottom: '2px' } }, [
+            h('div', { key: 'h', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', borderBottom: '1px solid var(--pp-hairline)', paddingBottom: '2px', marginBottom: '2px' } }, [
               h('span', { key: 't', style: { fontWeight: 600, opacity: 0.82 } }, '🧵 ' + (sid === '∅' ? '无会话' : '会话 …' + String(sid).slice(-6)) + (isCur ? ' · 当前' : '')),
               h('span', { key: 'c', style: hint }, gm.length + ' 笔'),
             ]),
@@ -288,14 +322,33 @@ window.__ModuleLoader__.load({
       var osx = React.useState(false); var open = osx[0], setOpen = osx[1];
       var tbs = React.useState(null); var tab = tbs[0], setTab = tbs[1]; // 'crosslens' | 'jiyibi' | 'set' | null(自动)
       var tks = React.useState(0); var setTick = tks[1];
+      var hs = React.useState(false); var hidden = hs[0], setHidden = hs[1]; // 进入知识疆域时隐藏浮窗
       var drag = React.useRef(null);
       var posRef = React.useRef(pos); posRef.current = pos;
 
       React.useEffect(function () {
         function upd() { setTick(function (n) { return n + 1; }); }
+        function onAtlasClosed() { setHidden(false); } // × 退出知识疆域 → 浮窗恢复
+        function onAtlasOpen() { setHidden(true); }    // 任何入口打开地图（含笔记收进疆域）→ 浮窗让位
+        function onJiyibiOpen() { setHidden(false); setOpen(true); setTab('jiyibi'); } // 从地图上的桥「↩回到记一笔」
         window.addEventListener('storage', upd); window.addEventListener('pace-popup:changed', upd);
-        return function () { window.removeEventListener('storage', upd); window.removeEventListener('pace-popup:changed', upd); };
+        window.addEventListener('pace-popup:atlas:closed', onAtlasClosed);
+        window.addEventListener('pace-popup:atlas:open', onAtlasOpen);
+        window.addEventListener('pace-popup:jiyibi:open', onJiyibiOpen);
+        return function () {
+          window.removeEventListener('storage', upd); window.removeEventListener('pace-popup:changed', upd);
+          window.removeEventListener('pace-popup:atlas:closed', onAtlasClosed);
+          window.removeEventListener('pace-popup:atlas:open', onAtlasOpen);
+          window.removeEventListener('pace-popup:jiyibi:open', onJiyibiOpen);
+        };
       }, []);
+
+      // 置顶入口:打开全屏地图 + 隐藏浮窗自身(收起卡片)
+      function launchAtlas() {
+        try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:open')); } catch (e) { }
+        setOpen(false); setHidden(true);
+      }
+      if (hidden) return null;
 
       function onDown(e) {
         e.preventDefault();
@@ -322,7 +375,7 @@ window.__ModuleLoader__.load({
         onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp,
       }, [
         h('span', { key: 'i' }, '🎛'),
-        h('span', { key: 't' }, '节奏台'),
+        h('span', { key: 't' }, '知识疆域'),
         h('span', { key: 'c', style: { opacity: 0.5 } }, open ? '▾' : '▸'),
       ]);
 
@@ -353,10 +406,12 @@ window.__ModuleLoader__.load({
         if (nearBottom) place.bottom = 'calc(100% + 6px)'; else place.top = 'calc(100% + 6px)';
         if (nearRight) place.right = 0; else place.left = 0;
 
-        children.push(h('div', { key: 'card', style: Object.assign({}, card, place) }, [
-          h('div', { key: 'tabs', style: tabBar }, tabEls),
-          body,
-        ]));
+        var cardKids = [];
+        // 置顶:打开知识疆域(全屏地图)——仅在其开关开启时显示
+        if (isOn('atlas')) cardKids.push(h('button', { key: 'atlas', style: atlasPin, title: '打开全屏知识地图', onClick: launchAtlas }, '🗺️ 打开知识疆域'));
+        cardKids.push(h('div', { key: 'tabs', style: tabBar }, tabEls));
+        cardKids.push(body);
+        children.push(h('div', { key: 'card', style: Object.assign({}, card, place) }, cardKids));
       }
 
       return h('div', { style: Object.assign({}, layer, { left: pos.x + 'px', top: pos.y + 'px' }) }, children);
