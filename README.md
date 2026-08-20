@@ -41,8 +41,8 @@ The last step — deciding that two things connect — always stays with you. No
 
 ```sh
 # 1. clone
-git clone https://github.com/xiayuhkust/dsh-pace-popups
-cd dsh-pace-popups
+git clone https://github.com/xiayuhkust/knowledge-territory
+cd knowledge-territory
 
 # 2. add the plugins to your dsh profile (run from this repo root)
 dsh plugin --profile web add \

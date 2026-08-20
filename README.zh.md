@@ -41,8 +41,8 @@ dsh 按"已安装的包身份"解析插件,把本仓的插件装进你的 profil
 
 ```sh
 # 1. 克隆
-git clone https://github.com/xiayuhkust/dsh-pace-popups
-cd dsh-pace-popups
+git clone https://github.com/xiayuhkust/knowledge-territory
+cd knowledge-territory
 
 # 2. 把插件加进 dsh profile(在本仓根目录里运行)
 dsh plugin --profile web add \
