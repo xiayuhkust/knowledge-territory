@@ -19,6 +19,29 @@ window.__ModuleLoader__.load({
     var React = require('react');
     var h = React.createElement;
 
+    // —— 双语:跟随 dsh 全局语言设置(locale 服务)。中文原文即 key;没有该服务时恒中文。——
+    // 注:reason/问题/答案来自 LLM(跟随对话语言),这里只翻提示条自身的 chrome。
+    var GRASP_EN = {
+      '当前进度可能已超出你能验收的范围': 'Progress may have run past what you can still vouch for',
+      '要不要停一下 · ': 'Pause a moment? · ',
+      '收起': 'Hide',
+      '停一下': 'Pause',
+      '想一想 · ': 'Think first · ',
+      '想一想:': 'Think first: ',
+      '看看 AI 的答案 ›': "See the AI's answer ›",
+      '答案:': 'Answer: ',
+      '已复制': 'Copied',
+      '复制': 'Copy',
+      '这次没能想出问题(可忽略)。': "Couldn't come up with a question this time (ignorable).",
+    };
+    var getLoc = function () { return null; };
+    var boundT = null, dictRegistered = false;
+    function T(s) {
+      var loc = getLoc(); if (!loc) return s;
+      if (!dictRegistered) { dictRegistered = true; try { loc.register('pace.grasp', 'en', GRASP_EN); } catch (e) { } try { boundT = loc.bind('pace.grasp'); } catch (e) { } }
+      return boundT ? boundT(s) : s;
+    }
+
     var wrap = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '4px 10px', fontSize: '12px', lineHeight: 1.5, opacity: 0.62, userSelect: 'none' };
     // dock 槽本身满宽、框架不给居中容器(官方 QueueDock 等都自居中);用对话根继承来的 CSS 变量把内容对齐到对话列。
     var center = { boxSizing: 'border-box', width: 'calc(100% - var(--dsh-composer-side-clearance, 16px) * 2 - var(--dsh-composer-dock-inset, 8px) * 2)', maxWidth: 'var(--dsh-composer-card-max-width, 780px)', margin: '0 auto', padding: '0 var(--dsh-composer-dock-inset, 8px)' };
@@ -61,31 +84,31 @@ window.__ModuleLoader__.load({
 
       // 平时什么都不画——这正是"不打扰"的本分
       if (!p || !p.shouldPrompt) return null;
-      var reason = p.reason || '当前进度可能已超出你能验收的范围';
+      var reason = p.reason || T('当前进度可能已超出你能验收的范围');
       var children = [
         h('span', { key: 'dot', style: dot }),
-        h('span', { key: 'msg', style: msg, title: reason }, '要不要停一下 · ' + reason),
-        h('button', { key: 'btn', style: btn, onClick: function () { setOpen(!open); } }, open ? '收起' : '停一下'),
+        h('span', { key: 'msg', style: msg, title: reason }, T('要不要停一下 · ') + reason),
+        h('button', { key: 'btn', style: btn, onClick: function () { setOpen(!open); } }, open ? T('收起') : T('停一下')),
       ];
       if (open) {
         if (q) {
           // 闪卡:先给问题(逼你自己回忆),再放一个"看看答案"——不点就不看
-          children.push(h('div', { key: 'q', style: exp }, '想一想 · ' + q));
+          children.push(h('div', { key: 'q', style: exp }, T('想一想 · ') + q));
           if (p.answer) {
             children.push(showAns
               ? h('div', { key: 'a', style: ans }, p.answer)
-              : h('button', { key: 'ab', style: Object.assign({ flexBasis: '100%', textAlign: 'left', marginTop: '2px', paddingLeft: '14px' }, linkBtn), onClick: function () { setShowAns(true); } }, '看看 AI 的答案 ›'));
+              : h('button', { key: 'ab', style: Object.assign({ flexBasis: '100%', textAlign: 'left', marginTop: '2px', paddingLeft: '14px' }, linkBtn), onClick: function () { setShowAns(true); } }, T('看看 AI 的答案 ›')));
           }
           // 复制:问题 +(已展开则含)答案
           children.push(h('button', {
             key: 'cp', style: Object.assign({ flexBasis: '100%', textAlign: 'left', marginTop: '2px', paddingLeft: '14px' }, linkBtn),
             onClick: function () {
-              var txt = '想一想:' + q + (showAns && p.answer ? '\n答案:' + p.answer : '');
+              var txt = T('想一想:') + q + (showAns && p.answer ? '\n' + T('答案:') + p.answer : '');
               try { navigator.clipboard.writeText(txt); setCopied(true); setTimeout(function () { setCopied(false); }, 1500); } catch (e) { /* ignore */ }
             },
-          }, copied ? '已复制' : '复制'));
+          }, copied ? T('已复制') : T('复制')));
         } else {
-          children.push(h('div', { key: 'ph', style: Object.assign({}, exp, { opacity: 0.6 }) }, '这次没能想出问题(可忽略)。'));
+          children.push(h('div', { key: 'ph', style: Object.assign({}, exp, { opacity: 0.6 }) }, T('这次没能想出问题(可忽略)。')));
         }
       }
       return h('div', { style: center }, h('div', { style: wrap }, children));
@@ -110,6 +133,8 @@ window.__ModuleLoader__.load({
 
     exports.inject = ['slots', 'connection'];
     exports.apply = function (ctx) {
+      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
+      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
       // 只有 conversation.input.dock 槽存在时才挂(headless/无此槽的装配天然跳过)
       ctx.slots.inject('conversation.input.dock', function () {
         return ctx.slots.register(

@@ -24,6 +24,83 @@ window.__ModuleLoader__.load({
     // apply 里注入的 RPC 调用闭包(工厂作用域,apply 先于渲染执行故渲染时已就绪)。
     var rpcCall = null;
 
+    // —— 双语:跟随 dsh 全局语言设置(设置页「语言」,locale 服务)。中文原文即 key,en 查不到回落中文;
+    //    没有 locale 服务时恒中文。浮窗常驻,故在 Bar 根部订阅 locale 变化触发整树重渲染。
+    var HUB_EN = {
+      '知识疆域': 'Knowledge Territory',
+      '从这里置顶打开(全屏地图)': 'Opens from the pinned entry (full-screen map)',
+      '跨学科抽卡': 'Cross-discipline draw',
+      '在这里展开': 'Opens here',
+      '记一笔': 'Jot it down',
+      '停一下': 'Pause a moment',
+      '在对话里出现(反应式) · 默认关': 'Appears in the conversation (reactive) · off by default',
+      '🎲 跨学科抽卡': '🎲 Draw a card',
+      '✍ 记一笔': '✍ Jot',
+      '移除': 'Remove',
+      '自定义，回车添加': 'Custom, Enter to add',
+      '随机来一个很冷门的细分学科': 'Pick a random obscure sub-field',
+      '🎲 随机学科': '🎲 Random field',
+      '抽卡中…': 'Drawing…',
+      '🎲 抽一张': '🎲 Draw one',
+      '打开一个对话抽得更准': 'Open a conversation for a sharper draw',
+      '这次没抽到（换个学科或稍后再抽）': 'Nothing this time (try another discipline, or draw again later)',
+      '列表外·': 'off-list · ',
+      '展开一点 ›': 'A bit more ›',
+      '已复制': 'Copied',
+      '复制': 'Copy',
+      '把这张卡收进知识疆域': 'Send this card into the territory',
+      '已收进疆域 ✓': 'In the territory ✓',
+      '🗺 收进疆域': '🗺 Into the territory',
+      '值得记一笔吗?写下它对你意味着什么…': 'Worth a note? Write what it means to you…',
+      '打开一个对话再记(要钉在某条对话上)': 'Open a conversation first (a note pins to one)',
+      '记着…': 'Saving…',
+      '记下(⌘/Ctrl+↵)': 'Save (⌘/Ctrl+↵)',
+      '记下了 ✓': 'Saved ✓',
+      '只写你的话——AI 说的那句它自有日志,这本子只留你的意义。': 'Write only your words — the AI\'s line is already in the log; this ledger keeps your meaning.',
+      '翻本子…（关键词,回车搜）': 'Browse the ledger… (keyword, Enter)',
+      '按时间': 'By time',
+      '按会话': 'By session',
+      '收起': 'Collapse',
+      '展开': 'Expand',
+      '看当时的问答 ›': 'See that moment\'s Q&A ›',
+      '把这一笔收进知识疆域': 'Send this note into the territory',
+      '删': 'Del',
+      '问': 'Q',
+      '答': 'A',
+      '复制这对问答': 'Copy this Q&A',
+      '翻本子中…': 'Loading the ledger…',
+      '没翻到。': 'Nothing found.',
+      '还没有记过。读到心里一动的地方,记一笔。': 'No notes yet. When something moves you, jot it down.',
+      '无会话': 'no session',
+      '会话 …': 'session …',
+      ' · 当前': ' · current',
+      ' 笔': ' note(s)',
+      '点击关闭': 'Click to turn off',
+      '点击开启': 'Click to turn on',
+      '开': 'On',
+      '关': 'Off',
+      '设置存在本浏览器。关掉的工具当场生效,不刷新。': 'Settings live in this browser. Turning a tool off takes effect immediately, no refresh.',
+      '拖动移动 · 点击': 'Drag to move · click to ',
+      '打开全屏知识地图': 'Open the full-screen knowledge map',
+      '🗺️ 打开知识疆域': '🗺️ Open Knowledge Territory',
+      '月': '/',
+      '日': '',
+    };
+    var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
+    var boundT = null, dictRegistered = false;
+    function T(s) {
+      var loc = getLoc(); if (!loc) return s;
+      if (!dictRegistered) { dictRegistered = true; try { loc.register('pace.hub', 'en', HUB_EN); } catch (e) { } try { boundT = loc.bind('pace.hub'); } catch (e) { } }
+      return boundT ? boundT(s) : s;
+    }
+    function useLang() {                                   // 根组件调用:语言切换 → 触发重渲染
+      var st = React.useState(0); var bump = st[1];
+      React.useEffect(function () {
+        var loc = getLoc(); if (!loc || !loc.subscribe) return;
+        return loc.subscribe(function () { bump(function (n) { return n + 1; }); });
+      }, []);
+    }
+
     // ——受管弹窗(slug 须与各弹窗 client 的 PACE_KEY 尾段一致;主功能在前,反应式辅助垫底)——
     var TOGGLES = [
       { slug: 'atlas', label: '知识疆域', note: '从这里置顶打开(全屏地图)' },
@@ -150,40 +227,40 @@ window.__ModuleLoader__.load({
       }
 
       var picker = [];
-      disc.forEach(function (d) { picker.push(h('button', { key: 'on-' + d, style: chipOn, title: '移除', onClick: function () { toggle(d); } }, d + ' ×')); });
+      disc.forEach(function (d) { picker.push(h('button', { key: 'on-' + d, style: chipOn, title: T('移除'), onClick: function () { toggle(d); } }, d + ' ×')); });
       PRESETS.filter(function (d) { return disc.indexOf(d) < 0; }).forEach(function (d) { picker.push(h('button', { key: 'p-' + d, style: chip, onClick: function () { toggle(d); } }, '+ ' + d)); });
       picker.push(h('input', {
-        key: 'in', style: Object.assign({}, textIn, { width: '130px' }), value: draft, placeholder: '自定义，回车添加',
+        key: 'in', style: Object.assign({}, textIn, { width: '130px' }), value: draft, placeholder: T('自定义，回车添加'),
         onChange: function (e) { setDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === 'Enter') { e.preventDefault(); addDraft(); } },
       }));
-      picker.push(h('button', { key: 'rnd', style: Object.assign({}, chip, { borderStyle: 'dashed', opacity: 0.85 }), title: '随机来一个很冷门的细分学科', onClick: randomDisc }, '🎲 随机学科'));
+      picker.push(h('button', { key: 'rnd', style: Object.assign({}, chip, { borderStyle: 'dashed', opacity: 0.85 }), title: T('随机来一个很冷门的细分学科'), onClick: randomDisc }, T('🎲 随机学科')));
 
       var kids = [
         h('div', { key: 'pk', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '8px' } }, picker),
         h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
-          h('button', { key: 'dice', style: Object.assign({}, pill, { height: '24px', lineHeight: '24px', padding: '0 14px', opacity: 0.9 }), disabled: loading, onClick: drawCard }, loading ? '抽卡中…' : '🎲 抽一张'),
-          sessionId ? null : h('span', { key: 'ns', style: hint }, '打开一个对话抽得更准'),
+          h('button', { key: 'dice', style: Object.assign({}, pill, { height: '24px', lineHeight: '24px', padding: '0 14px', opacity: 0.9 }), disabled: loading, onClick: drawCard }, loading ? T('抽卡中…') : T('🎲 抽一张')),
+          sessionId ? null : h('span', { key: 'ns', style: hint }, T('打开一个对话抽得更准')),
         ]),
       ];
       if (cardv === 'none') {
-        kids.push(h('div', { key: 'none', style: Object.assign({ marginTop: '8px' }, dim) }, '这次没抽到（换个学科或稍后再抽）'));
+        kids.push(h('div', { key: 'none', style: Object.assign({ marginTop: '8px' }, dim) }, T('这次没抽到（换个学科或稍后再抽）')));
       } else if (cardv) {
         var hookKids = [];
-        if (cardv.offlist && cardv.discipline) hookKids.push(h('span', { key: 't', style: { fontSize: '11px', opacity: 0.6, border: '1px solid currentColor', borderRadius: '4px', padding: '0 4px', marginRight: '6px' } }, '列表外·' + cardv.discipline));
+        if (cardv.offlist && cardv.discipline) hookKids.push(h('span', { key: 't', style: { fontSize: '11px', opacity: 0.6, border: '1px solid currentColor', borderRadius: '4px', padding: '0 4px', marginRight: '6px' } }, T('列表外·') + cardv.discipline));
         hookKids.push(cardv.hook);
         kids.push(h('div', { key: 'hook', style: { marginTop: '8px' } }, hookKids));
         if (cardv.expand && showExp) kids.push(h('div', { key: 'exp', style: { marginTop: '4px', opacity: 0.78, borderLeft: '2px solid currentColor', paddingLeft: '10px' } }, cardv.expand));
         var acts = [];
-        if (cardv.expand && !showExp) acts.push(h('button', { key: 'e', style: linkBtn, onClick: function () { setShowExp(true); } }, '展开一点 ›'));
-        acts.push(h('button', { key: 'c', style: linkBtn, onClick: copyCard }, copied ? '已复制' : '复制'));
-        acts.push(h('button', { key: 'atl', style: atlased ? ctaDone : cta, title: '把这张卡收进知识疆域', onClick: toAtlas }, atlased ? '已收进疆域 ✓' : '🗺 收进疆域'));
+        if (cardv.expand && !showExp) acts.push(h('button', { key: 'e', style: linkBtn, onClick: function () { setShowExp(true); } }, T('展开一点 ›')));
+        acts.push(h('button', { key: 'c', style: linkBtn, onClick: copyCard }, copied ? T('已复制') : T('复制')));
+        acts.push(h('button', { key: 'atl', style: atlased ? ctaDone : cta, title: T('把这张卡收进知识疆域'), onClick: toAtlas }, atlased ? T('已收进疆域 ✓') : T('🗺 收进疆域')));
         kids.push(h('div', { key: 'act', style: { display: 'flex', gap: '12px', marginTop: '6px' } }, acts));
       }
       return h('div', null, kids);
     }
 
     // ============ 记一笔 面板(移自 jiyibi dock)============
-    function fmt(ts) { try { var d = new Date(ts); return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch (e) { return ''; } }
+    function fmt(ts) { try { var d = new Date(ts); return (d.getMonth() + 1) + T('月') + d.getDate() + T('日') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } catch (e) { return ''; } }
 
     function JiyibiPanel(props) {
       var sessionId = props.sessionId;
@@ -222,28 +299,28 @@ window.__ModuleLoader__.load({
       // 写
       kids.push(h('textarea', {
         key: 'ta', style: Object.assign({}, textIn, { minHeight: '52px', resize: 'vertical' }), value: note,
-        placeholder: sessionId ? '值得记一笔吗?写下它对你意味着什么…' : '打开一个对话再记(要钉在某条对话上)',
+        placeholder: sessionId ? T('值得记一笔吗?写下它对你意味着什么…') : T('打开一个对话再记(要钉在某条对话上)'),
         disabled: !sessionId,
         onChange: function (e) { setNote(e.target.value); },
         onKeyDown: function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } },
       }));
       kids.push(h('div', { key: 'wr', style: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' } }, [
-        h('button', { key: 's', style: Object.assign({}, pill, { height: '22px', lineHeight: '22px' }), disabled: busy || !sessionId, onClick: save }, busy ? '记着…' : '记下(⌘/Ctrl+↵)'),
-        saved ? h('span', { key: 'ok', style: dim }, '记下了 ✓') : null,
+        h('button', { key: 's', style: Object.assign({}, pill, { height: '22px', lineHeight: '22px' }), disabled: busy || !sessionId, onClick: save }, busy ? T('记着…') : T('记下(⌘/Ctrl+↵)')),
+        saved ? h('span', { key: 'ok', style: dim }, T('记下了 ✓')) : null,
       ]));
-      kids.push(h('div', { key: 'note', style: Object.assign({ marginTop: '3px' }, hint) }, '只写你的话——AI 说的那句它自有日志,这本子只留你的意义。'));
+      kids.push(h('div', { key: 'note', style: Object.assign({ marginTop: '3px' }, hint) }, T('只写你的话——AI 说的那句它自有日志,这本子只留你的意义。')));
       // 翻本子
       kids.push(h('div', { key: 'hr', style: { borderTop: '1px solid var(--pp-hairline)', margin: '9px 0 7px' } }));
       kids.push(h('input', {
-        key: 'q', style: textIn, value: query, placeholder: '翻本子…（关键词,回车搜）',
+        key: 'q', style: textIn, value: query, placeholder: T('翻本子…（关键词,回车搜）'),
         onChange: function (e) { setQuery(e.target.value); }, onKeyDown: function (e) { if (e.key === 'Enter') { e.preventDefault(); refresh(query); } },
       }));
       // 视图切换:按时间(默认)/ 按会话索引
       var vpill = { font: 'inherit', color: 'inherit', background: 'transparent', border: '1px solid var(--pp-hairline-strong)', borderRadius: '999px', padding: '0 9px', cursor: 'pointer', fontSize: '11px', lineHeight: '18px', opacity: 0.65 };
       var vpillOn = Object.assign({}, vpill, { opacity: 1, borderColor: 'currentColor', fontWeight: 600 });
       kids.push(h('div', { key: 'vm', style: { display: 'flex', gap: '6px', marginTop: '6px' } }, [
-        h('button', { key: 't', style: (view === 'time' ? vpillOn : vpill), onClick: function () { setView('time'); } }, '按时间'),
-        h('button', { key: 's', style: (view === 'session' ? vpillOn : vpill), onClick: function () { setView('session'); } }, '按会话'),
+        h('button', { key: 't', style: (view === 'time' ? vpillOn : vpill), onClick: function () { setView('time'); } }, T('按时间')),
+        h('button', { key: 's', style: (view === 'session' ? vpillOn : vpill), onClick: function () { setView('session'); } }, T('按会话')),
       ]));
 
       var linkMini = Object.assign({}, linkBtn, { fontSize: '11px' });
@@ -256,22 +333,22 @@ window.__ModuleLoader__.load({
           h('div', { key: 'm', style: Object.assign({ marginTop: '1px' }, hint) }, fmt(m.ts)),
         ];
         var acts = [];
-        if (hasQA) acts.push(h('button', { key: 'q', style: linkMini, onClick: function () { setOpenId(isOpen ? null : m.id); } }, isOpen ? '收起' : '看当时的问答 ›'));
-        acts.push(h('button', { key: 'atl', style: atlasedId === m.id ? ctaDoneSm : ctaSm, title: '把这一笔收进知识疆域', onClick: function () { noteToAtlas(m); } }, atlasedId === m.id ? '已收进疆域 ✓' : '🗺 收进疆域'));
-        acts.push(h('button', { key: 'd', style: Object.assign({}, linkMini, { opacity: 0.5 }), onClick: function () { del(m.id); } }, '删'));
+        if (hasQA) acts.push(h('button', { key: 'q', style: linkMini, onClick: function () { setOpenId(isOpen ? null : m.id); } }, isOpen ? T('收起') : T('看当时的问答 ›')));
+        acts.push(h('button', { key: 'atl', style: atlasedId === m.id ? ctaDoneSm : ctaSm, title: T('把这一笔收进知识疆域'), onClick: function () { noteToAtlas(m); } }, atlasedId === m.id ? T('已收进疆域 ✓') : T('🗺 收进疆域')));
+        acts.push(h('button', { key: 'd', style: Object.assign({}, linkMini, { opacity: 0.5 }), onClick: function () { del(m.id); } }, T('删')));
         ik.push(h('div', { key: 'act', style: { display: 'flex', gap: '14px', marginTop: '2px' } }, acts));
         if (isOpen && hasQA) {
           var qa = [];
-          if (m.userAsked) qa.push(h('div', { key: 'q', style: { display: 'flex', whiteSpace: 'pre-wrap', wordBreak: 'break-word', opacity: 0.88, marginBottom: '6px' } }, [h('span', { key: 'l', style: qaLabel }, '问'), h('span', { key: 't' }, m.userAsked)]));
-          if (m.aiSaid) qa.push(h('div', { key: 'a', style: { display: 'flex', whiteSpace: 'pre-wrap', wordBreak: 'break-word', opacity: 0.88 } }, [h('span', { key: 'l', style: qaLabel }, '答'), h('span', { key: 't' }, m.aiSaid)]));
-          qa.push(h('button', { key: 'cp', style: Object.assign({}, linkMini, { marginTop: '6px' }), onClick: function () { copyQA(m); } }, copiedId === m.id ? '已复制' : '复制这对问答'));
+          if (m.userAsked) qa.push(h('div', { key: 'q', style: { display: 'flex', whiteSpace: 'pre-wrap', wordBreak: 'break-word', opacity: 0.88, marginBottom: '6px' } }, [h('span', { key: 'l', style: qaLabel }, T('问')), h('span', { key: 't' }, m.userAsked)]));
+          if (m.aiSaid) qa.push(h('div', { key: 'a', style: { display: 'flex', whiteSpace: 'pre-wrap', wordBreak: 'break-word', opacity: 0.88 } }, [h('span', { key: 'l', style: qaLabel }, T('答')), h('span', { key: 't' }, m.aiSaid)]));
+          qa.push(h('button', { key: 'cp', style: Object.assign({}, linkMini, { marginTop: '6px' }), onClick: function () { copyQA(m); } }, copiedId === m.id ? T('已复制') : T('复制这对问答')));
           ik.push(h('div', { key: 'qa', style: { marginTop: '6px', padding: '7px 9px', borderRadius: '8px', background: 'rgba(128,128,128,0.12)', maxHeight: '240px', overflowY: 'auto' } }, qa));
         }
         return h('div', { key: m.id, style: { borderLeft: '2px solid currentColor', paddingLeft: '10px', margin: '8px 0' } }, ik);
       }
 
-      if (marks === null) kids.push(h('div', { key: 'ld', style: Object.assign({ marginTop: '6px' }, hint) }, '翻本子中…'));
-      else if (!marks.length) kids.push(h('div', { key: 'em', style: Object.assign({ marginTop: '6px' }, hint) }, query ? '没翻到。' : '还没有记过。读到心里一动的地方,记一笔。'));
+      if (marks === null) kids.push(h('div', { key: 'ld', style: Object.assign({ marginTop: '6px' }, hint) }, T('翻本子中…')));
+      else if (!marks.length) kids.push(h('div', { key: 'em', style: Object.assign({ marginTop: '6px' }, hint) }, query ? T('没翻到。') : T('还没有记过。读到心里一动的地方,记一笔。')));
       else if (view === 'time') kids.push(h('div', { key: 'list', style: { marginTop: '4px' } }, marks.map(markItem)));
       else {
         // 按会话分组做索引(marks 已倒序 → 组内保持倒序,组按"最新一笔"先后)
@@ -282,8 +359,8 @@ window.__ModuleLoader__.load({
           var isCur = sessionId && sid === sessionId;
           return h('div', { key: sid, style: { marginTop: '9px' } }, [
             h('div', { key: 'h', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', borderBottom: '1px solid var(--pp-hairline)', paddingBottom: '2px', marginBottom: '2px' } }, [
-              h('span', { key: 't', style: { fontWeight: 600, opacity: 0.82 } }, '🧵 ' + (sid === '∅' ? '无会话' : '会话 …' + String(sid).slice(-6)) + (isCur ? ' · 当前' : '')),
-              h('span', { key: 'c', style: hint }, gm.length + ' 笔'),
+              h('span', { key: 't', style: { fontWeight: 600, opacity: 0.82 } }, '🧵 ' + (sid === '∅' ? T('无会话') : T('会话 …') + String(sid).slice(-6)) + (isCur ? T(' · 当前') : '')),
+              h('span', { key: 'c', style: hint }, gm.length + T(' 笔')),
             ]),
             h('div', { key: 'b' }, gm.map(markItem)),
           ]);
@@ -299,13 +376,13 @@ window.__ModuleLoader__.load({
         var on = isOn(t.slug);
         return h('div', { key: t.slug, style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', padding: '5px 0' } }, [
           h('div', { key: 'l', style: { minWidth: 0 } }, [
-            h('div', { key: 'n', style: { fontWeight: 600 } }, t.label),
-            h('div', { key: 'h', style: hint }, t.note),
+            h('div', { key: 'n', style: { fontWeight: 600 } }, T(t.label)),
+            h('div', { key: 'h', style: hint }, T(t.note)),
           ]),
-          h('button', { key: 'p', style: Object.assign({}, pill, on ? {} : { opacity: 0.4 }), title: on ? '点击关闭' : '点击开启', onClick: function () { setOn(t.slug, !on); } }, on ? '开' : '关'),
+          h('button', { key: 'p', style: Object.assign({}, pill, on ? {} : { opacity: 0.4 }), title: on ? T('点击关闭') : T('点击开启'), onClick: function () { setOn(t.slug, !on); } }, on ? T('开') : T('关')),
         ]);
       });
-      kids.push(h('div', { key: 'ft', style: Object.assign({ marginTop: '6px' }, hint) }, '设置存在本浏览器。关掉的工具当场生效,不刷新。'));
+      kids.push(h('div', { key: 'ft', style: Object.assign({ marginTop: '6px' }, hint) }, T('设置存在本浏览器。关掉的工具当场生效,不刷新。')));
       return h('div', null, kids);
     }
 
@@ -313,6 +390,7 @@ window.__ModuleLoader__.load({
     function Bar(props) {
       var useSessions = props.useSessions;
       var sessionId = (typeof useSessions === 'function') ? useSessions(function (s) { return s && s.current; }) : null;
+      useLang();                                            // 语言切换 → 整条浮窗即时换语言
 
       var ps = React.useState(function () {
         var p = loadPos(); if (p) return p;
@@ -371,11 +449,11 @@ window.__ModuleLoader__.load({
       }
 
       var handleEl = h('div', {
-        key: 'handle', style: handle, title: '拖动移动 · 点击' + (open ? '收起' : '展开'),
+        key: 'handle', style: handle, title: T('拖动移动 · 点击') + (open ? T('收起') : T('展开')),
         onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp,
       }, [
         h('span', { key: 'i' }, '🎛'),
-        h('span', { key: 't' }, '知识疆域'),
+        h('span', { key: 't' }, T('知识疆域')),
         h('span', { key: 'c', style: { opacity: 0.5 } }, open ? '▾' : '▸'),
       ]);
 
@@ -392,7 +470,7 @@ window.__ModuleLoader__.load({
           active = tools.length ? tools[0].slug : 'set';
         }
         var tabEls = tabs.map(function (tb) {
-          return h('button', { key: tb.key, style: (tb.key === active ? tabOn : tabBtn), onClick: function () { setTab(tb.key); } }, tb.label);
+          return h('button', { key: tb.key, style: (tb.key === active ? tabOn : tabBtn), onClick: function () { setTab(tb.key); } }, tb.key === 'set' ? tb.label : T(tb.label));
         });
 
         var body;
@@ -408,7 +486,7 @@ window.__ModuleLoader__.load({
 
         var cardKids = [];
         // 置顶:打开知识疆域(全屏地图)——仅在其开关开启时显示
-        if (isOn('atlas')) cardKids.push(h('button', { key: 'atlas', style: atlasPin, title: '打开全屏知识地图', onClick: launchAtlas }, '🗺️ 打开知识疆域'));
+        if (isOn('atlas')) cardKids.push(h('button', { key: 'atlas', style: atlasPin, title: T('打开全屏知识地图'), onClick: launchAtlas }, T('🗺️ 打开知识疆域')));
         cardKids.push(h('div', { key: 'tabs', style: tabBar }, tabEls));
         cardKids.push(body);
         children.push(h('div', { key: 'card', style: Object.assign({}, card, place) }, cardKids));
@@ -420,6 +498,8 @@ window.__ModuleLoader__.load({
     exports.inject = ['slots', 'connection'];
     exports.apply = function (ctx) {
       rpcCall = function (channel, endpoint, payload) { return ctx.connection.rpc.call(channel, endpoint, payload || {}); };
+      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
+      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
       // 只有 shell.overlay 槽存在时才挂(headless/无此槽的装配天然跳过)
       ctx.slots.inject('shell.overlay', function () {
         return ctx.slots.register({ name: 'shell.overlay', id: 'pace-hub', order: 10 }, Bar);

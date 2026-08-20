@@ -21,6 +21,77 @@ window.__ModuleLoader__.load({
     // apply 里注入的 RPC 调用闭包(留待后续接线;当前地图用内存 mock,不碰会话日志)。
     var rpcCall = null;
 
+    // —— 双语:跟随 dsh 全局语言设置(设置页「语言」,dsh-client-locale 的 locale 服务)。——
+    // 中文原文即词典 key:只注册一份 en 词典,active=zh 或查不到时 locale 服务自动回落 key(中文);
+    // 宿主没有 locale 服务(旧版/headless)时恒中文。地图整屏挂载、切语言须先关图,故只在挂载时读、不订阅。
+    var ATLAS_EN = {
+      '知识疆域': 'Knowledge Territory',
+      '从你的会话里，一块块拼出的知识大陆': 'Knowledge continents, assembled piece by piece from your sessions',
+      '你点亮的链接': 'links you lit',
+      '打通的学科对': 'discipline pairs bridged',
+      '待安置的连接': 'connections waiting',
+      '学科总览': 'Disciplines',
+      '查看': 'View',
+      '待你点亮的连接': 'Connections waiting for you',
+      '＋ 新建连接': '＋ New connection',
+      '悬停一座城看它的来历 · 从左侧点亮航路': 'Hover a city for its story · light routes from the left',
+      'AI 正在判两端…': 'AI is guessing the two ends…',
+      ' 链接': ' link(s)',
+      '待你安置': 'ready to place',
+      '待你指定两端': 'pick both ends',
+      '安置': 'Place',
+      '移除': 'Remove',
+      '这里汇集待你点亮的连接。<br>抽张卡、记一笔「收进疆域」，或点上方「＋ 新建连接」。': 'Connections waiting for you gather here.<br>Draw a card or jot a note and send it in, or click "＋ New connection" above.',
+      '掌握 ': 'mastery ',
+      ' 条链接': ' links',
+      '（还没有链接）': '(no links yet)',
+      '◈ 桥': '◈ bridge',
+      '点开：看链接、改两端': 'Click: see links, change ends',
+      '空的<b>预备连接</b>已加到左栏 —— 点它选两端': 'An empty <b>pending connection</b> is in the left rail — click it and pick two ends',
+      '已加到左栏<b>预备桥</b> —— 点它，选两端安置': 'Added to the left rail as a <b>pending bridge</b> — click it, pick two ends to place',
+      '桥已安置 —— ': 'Bridge placed — ',
+      '开辟了「{0}」大陆': 'Founded the "{0}" continent',
+      '「{0}」已在图上': '"{0}" is already on the map',
+      '在「{0}」开辟了「{1}」州': 'Opened the "{1}" state in "{0}"',
+      '关闭': 'Close',
+      '一级学科（大陆）· 二级学科（州）。点淡显的大陆/带＋的州开辟到地图；「＋ 开辟州」可自建二级学科。': 'Level-1 disciplines (continents) · level-2 (states). Click a dimmed continent or a ＋ state to open it on the map; "＋ New state" adds your own.',
+      '＋ 新建学科，回车开辟一块新大陆': '＋ New discipline, Enter to found a continent',
+      '开辟': 'Found',
+      '未开辟': 'not founded',
+      '已在图上': 'already on the map',
+      '点击开辟这片州': 'click to open this state',
+      '＋ 开辟州': '＋ New state',
+      '二级学科名，回车开辟（Esc 取消）': 'State name, Enter to open (Esc cancels)',
+      '桥 · ': 'Bridge · ',
+      '· 预备，选好两端即安置': '· pending — picking both ends places it',
+      '选一端': 'pick an end',
+      '链接': 'Links',
+      '让这两块连起来的那些话': 'the words that connect these two',
+      '还没有链接。加一句"为什么连"，或从抽卡/记一笔收进来。': 'No links yet. Add a line for "why", or send one in from a card draw / a note.',
+      '（空）': '(empty)',
+      '↩ 回到记一笔': '↩ Back to the note',
+      '＋手动加一句：为什么连？': '＋ Add a line: why do they connect?',
+      '加': 'Add',
+      '删除桥': 'Delete bridge',
+      '细到 2 级学科（可选，连接点会落到那片州）': 'Refine to a level-2 state (optional; the anchor lands there)',
+      '·大陆中央': ' · continent center',
+      '＋新学科，回车': '＋ new discipline, Enter',
+      '手动连接': 'manual connection',
+      '桥端新辟': 'opened as a bridge end',
+      '新建学科': 'newly founded',
+      '开辟二级学科': 'opened as a state',
+      '恢复疆域': 'restored from your territory',
+      '退出知识疆域': 'Exit Knowledge Territory',
+    };
+    var getLoc = function () { return null; };            // apply 里接上 ctx.get('locale')
+    var boundT = null, dictRegistered = false;
+    function T(s) {
+      var loc = getLoc(); if (!loc) return s;
+      if (!dictRegistered) { dictRegistered = true; try { loc.register('pace.atlas', 'en', ATLAS_EN); } catch (e) { } try { boundT = loc.bind('pace.atlas'); } catch (e) { } }
+      return boundT ? boundT(s) : s;
+    }
+    function TF(s) { var out = T(s); for (var i = 1; i < arguments.length; i++) out = out.replace('{' + (i - 1) + '}', arguments[i]); return out; }
+
     // ════════════════ 原型样式(整块搬入,只做一件事:全部收窄到 .dsh-atlas-root 作用域)════════════════
     // 原型里 :root / html,body 的全局规则若直接注入 document.head 会污染宿主 app(改掉 body 背景、overflow)。
     // 因此:变量落到 .dsh-atlas-root、body 规则并入 .dsh-atlas-root、其余选择器一律加前缀;keyframes 改名防撞。
@@ -230,29 +301,29 @@ window.__ModuleLoader__.load({
       } catch (e) { /* ignore */ }
     }
 
-    // ════════════════ 原型 DOM 结构(.app/.head/.rail/.stage 原样;挂载后写入 root.innerHTML)════════════════
-    var BODY_HTML = `
+    // ════════════════ 原型 DOM 结构(.app/.head/.rail/.stage 原样;挂载时求值以带上当前语言)════════════════
+    function bodyHtml() { return `
 <div class="app">
   <header class="head">
     <div class="brand">
       <span class="mk">◆</span>
-      <h1>知识疆域</h1>
-      <span class="sub">从你的会话里，一块块拼出的知识大陆</span>
+      <h1>${T('知识疆域')}</h1>
+      <span class="sub">${T('从你的会话里，一块块拼出的知识大陆')}</span>
     </div>
     <div class="readout">
-      <div class="stat"><b id="rConn">—</b><span>你点亮的链接</span></div>
-      <div class="stat bridge"><b id="rBridge">—</b><span>打通的学科对</span></div>
-      <div class="stat"><b id="rFront">—</b><span>待安置的连接</span></div>
+      <div class="stat"><b id="rConn">—</b><span>${T('你点亮的链接')}</span></div>
+      <div class="stat bridge"><b id="rBridge">—</b><span>${T('打通的学科对')}</span></div>
+      <div class="stat"><b id="rFront">—</b><span>${T('待安置的连接')}</span></div>
     </div>
   </header>
 
   <main>
     <aside class="rail">
       <section class="rail-top">
-        <div class="rail-label rl-row">学科总览<button id="ovOpen" class="mini">查看</button></div>
+        <div class="rail-label rl-row">${T('学科总览')}<button id="ovOpen" class="mini">${T('查看')}</button></div>
       </section>
       <section class="inbox">
-        <div class="rail-label rl-row">待你点亮的连接<button id="newLink" class="mini">＋ 新建连接</button></div>
+        <div class="rail-label rl-row">${T('待你点亮的连接')}<button id="newLink" class="mini">${T('＋ 新建连接')}</button></div>
         <div id="candidates"></div>
       </section>
     </aside>
@@ -263,11 +334,11 @@ window.__ModuleLoader__.load({
       <div class="picker" id="picker"></div>
       <div class="toast" id="toast"></div>
       <div class="legend" id="legend"></div>
-      <div class="hint">悬停一座城看它的来历 · 从左侧点亮航路</div>
+      <div class="hint">${T('悬停一座城看它的来历 · 从左侧点亮航路')}</div>
     </div>
   </main>
 </div>
-`;
+`; }
 
     // ════════════════ 原型 <script> 逻辑(忠实移植)════════════════
     // 唯一的系统性改动:所有 document.getElementById → byId(root 作用域);
@@ -682,7 +753,7 @@ window.__ModuleLoader__.load({
       });
       function showHover(n, x, y) {
         const d = DISC[n.disc];
-        hover.innerHTML = '<span class="hc-master">掌握 ' + Math.round(n.mastery * 100) + '%</span><h4>' + n.label + '</h4>' +
+        hover.innerHTML = '<span class="hc-master">' + T('掌握 ') + Math.round(n.mastery * 100) + '%</span><h4>' + n.label + '</h4>' +
           '<div class="hc-disc" style="color:' + d.city + '">● ' + d.name + (n.sub ? ' · ' + n.sub : '') + '</div>' +
           '<div class="bar"><i style="width:' + (n.mastery * 100) + '%;background:' + d.city + '"></i></div>' +
           '<div class="hc-src">' + (n.src || "—") + '</div>';
@@ -705,15 +776,15 @@ window.__ModuleLoader__.load({
           const kinds = (d.links || []).map(l => linkIcon(l.kind)).join('') || '·';
           const nlk = (d.links || []).length;
           const ready = matchDiscByName(d.aName) && matchDiscByName(d.bName);
-          const meta = d.classifying ? 'AI 正在判两端…' : (kinds + (nlk ? ' ' + nlk + ' 链接' : '') + ' · ' + (ready ? '待你安置' : '待你指定两端'));
+          const meta = d.classifying ? T('AI 正在判两端…') : (kinds + (nlk ? ' ' + nlk + T(' 链接') : '') + ' · ' + (ready ? T('待你安置') : T('待你指定两端')));
           el.innerHTML = '<div class="cand-pair">' + discChip(d.aName) + '<span class="link">⟷</span>' + discChip(d.bName) + '</div>' +
             '<div class="cand-meta">' + meta + '</div>' +
-            '<div class="cand-actions"><button class="btn lite">安置</button><button class="btn ghost">移除</button></div>';
+            '<div class="cand-actions"><button class="btn lite">' + T('安置') + '</button><button class="btn ghost">' + T('移除') + '</button></div>';
           el.querySelector(".lite").onclick = () => openBridgePanel(d, true);
           el.querySelector(".ghost").onclick = () => { const arr = getDrafts(), i = arr.indexOf(d); if (i >= 0) arr.splice(i, 1); renderRail(); };
           candBox.appendChild(el);
         });
-        if (!drafts.length) candBox.innerHTML = '<div class="inbox-empty">这里汇集待你点亮的连接。<br>抽张卡、记一笔「收进疆域」，或点上方「＋ 新建连接」。</div>';
+        if (!drafts.length) candBox.innerHTML = '<div class="inbox-empty">' + T('这里汇集待你点亮的连接。<br>抽张卡、记一笔「收进疆域」，或点上方「＋ 新建连接」。') + '</div>';
         updateReadout();
       }
 
@@ -854,8 +925,8 @@ window.__ModuleLoader__.load({
       function ingestBridge(raw) {          // 恢复：后端已安置的桥（addNote 落库），按两端并成一座、收集链接
         if (!raw.discA || !raw.discB) return null;
         // 端点学科还没在图上 → 自动开辟（getDiscKey 复用总库地色；created 时落一座首府）
-        const ga = getDiscKey(raw.discA); if (ga.created) { const cap = N(raw.discA, ga.key, 0.42, '恢复疆域'); placeNear(cap); }
-        const gb = getDiscKey(raw.discB); if (gb.created) { const cap = N(raw.discB, gb.key, 0.42, '恢复疆域'); placeNear(cap); }
+        const ga = getDiscKey(raw.discA); if (ga.created) { const cap = N(raw.discA, ga.key, 0.42, T('恢复疆域')); placeNear(cap); }
+        const gb = getDiscKey(raw.discB); if (gb.created) { const cap = N(raw.discB, gb.key, 0.42, T('恢复疆域')); placeNear(cap); }
         if (ga.created || gb.created) { settle(120); rebuild(false); renderLegend(); }
         const ka = ga.key, kb = gb.key;
         const e0 = (raw.entries && raw.entries[0]) || {};
@@ -884,10 +955,10 @@ window.__ModuleLoader__.load({
         });
       }
       function showBridgeHover(b, x, y) {
-        const list = b.links.slice(-4).map(l => '<div style="font-size:11px;opacity:.82;margin-top:3px;line-height:1.4">' + linkIcon(l.kind) + ' ' + esc(short(l.text, 36)) + '</div>').join("") || '<div style="font-size:11px;opacity:.55;margin-top:3px">（还没有链接）</div>';
-        hover.innerHTML = '<span class="hc-master">' + (b.links.length || 0) + ' 条链接</span><h4>' + esc(b.discA || '?') + ' ⟷ ' + esc(b.discB || '?') + '</h4>' +
-          '<div class="hc-disc" style="color:rgba(150,102,20,1)">◈ 桥</div>' + list +
-          '<div style="font-size:10.5px;opacity:.5;margin-top:5px">点开：看链接、改两端</div>';
+        const list = b.links.slice(-4).map(l => '<div style="font-size:11px;opacity:.82;margin-top:3px;line-height:1.4">' + linkIcon(l.kind) + ' ' + esc(short(l.text, 36)) + '</div>').join("") || '<div style="font-size:11px;opacity:.55;margin-top:3px">' + T('（还没有链接）') + '</div>';
+        hover.innerHTML = '<span class="hc-master">' + (b.links.length || 0) + T(' 条链接') + '</span><h4>' + esc(b.discA || '?') + ' ⟷ ' + esc(b.discB || '?') + '</h4>' +
+          '<div class="hc-disc" style="color:rgba(150,102,20,1)">' + T('◈ 桥') + '</div>' + list +
+          '<div style="font-size:10.5px;opacity:.5;margin-top:5px">' + T('点开：看链接、改两端') + '</div>';
         hover.style.left = Math.min(x + 14, stage.clientWidth - 222) + "px";
         hover.style.top = Math.max(8, y - 10) + "px"; hover.classList.add("show");
       }
@@ -896,13 +967,13 @@ window.__ModuleLoader__.load({
       // 存 window（跨地图开/关存活；整页刷新才清）。每条：{id,links:[{id,kind,text,ref}],aName,bName,classifying,why}
       function getDrafts() { try { return (window.__atlasDrafts__ = window.__atlasDrafts__ || []); } catch (e) { return []; } }
       function draftText(d) { return (d.links || []).map(l => l.text).filter(Boolean).join(' / '); }
-      function draftTitle(d) { const t = d.links && d.links[0] && d.links[0].text; return t ? short(t, 14) : '手动连接'; }
+      function draftTitle(d) { const t = d.links && d.links[0] && d.links[0].text; return t ? short(t, 14) : T('手动连接'); }
       function addDraft(d) {
         const drafts = getDrafts(), id = 'd' + (++bseq);
         const draft = { id, links: d.links || [], aName: d.aName || '', bName: d.bName || '', why: '', classifying: false };
         drafts.push(draft); renderRail();
         if (rpcCall && draftText(draft) && !(draft.aName && draft.bName)) { draft.classifying = true; renderRail(); classifyDraft(draft); }
-        toast(d.empty ? '空的<b>预备连接</b>已加到左栏 —— 点它选两端' : '已加到左栏<b>预备桥</b> —— 点它，选两端安置', 'plain', 2600);
+        toast(d.empty ? T('空的<b>预备连接</b>已加到左栏 —— 点它选两端') : T('已加到左栏<b>预备桥</b> —— 点它，选两端安置'), 'plain', 2600);
         return draft;
       }
       function classifyDraft(draft) {                        // AI 先判两端（不确定就留空，等你手点）
@@ -936,9 +1007,9 @@ window.__ModuleLoader__.load({
       // ── 学科总览（弹窗）：左栏只留"查看"入口。面板 = 学科总库（1 级色块 + 2 级学科）+ 新建学科。
       //    与跨学科抽卡共享同一套学科结构（DISC_LIB）；未开辟的淡显，点一下即开辟成大陆。
       const ovModal = document.createElement('div'); ovModal.className = 'ov-modal';
-      ovModal.innerHTML = '<div class="ov-card"><div class="rl-row" style="margin-bottom:6px"><h3>学科总览</h3><button class="mini" id="ovClose">关闭</button></div>' +
-        '<div class="ov-sub-h">一级学科（大陆）· 二级学科（州）。点淡显的大陆/带＋的州开辟到地图；「＋ 开辟州」可自建二级学科。</div>' +
-        '<div class="ov-new"><input class="chipin" id="ovNew" placeholder="＋ 新建学科，回车开辟一块新大陆"><button class="mini" id="ovNewGo">开辟</button></div>' +
+      ovModal.innerHTML = '<div class="ov-card"><div class="rl-row" style="margin-bottom:6px"><h3>' + T('学科总览') + '</h3><button class="mini" id="ovClose">' + T('关闭') + '</button></div>' +
+        '<div class="ov-sub-h">' + T('一级学科（大陆）· 二级学科（州）。点淡显的大陆/带＋的州开辟到地图；「＋ 开辟州」可自建二级学科。') + '</div>' +
+        '<div class="ov-new"><input class="chipin" id="ovNew" placeholder="' + T('＋ 新建学科，回车开辟一块新大陆') + '"><button class="mini" id="ovNewGo">' + T('开辟') + '</button></div>' +
         '<div id="overview" class="overview"></div></div>';
       stage.appendChild(ovModal);
       ovModal.addEventListener('click', e => { if (e.target === ovModal) closeOverview(); });   // 点背景关闭
@@ -967,19 +1038,19 @@ window.__ModuleLoader__.load({
       });
       function foundDisc(nm) {                                     // 开辟一块大陆（总库/自建通用）
         const gk = getDiscKey(nm);
-        if (gk.created) { const cap = N(nm, gk.key, 0.42, '新建学科'); placeNear(cap); settle(80); }
+        if (gk.created) { const cap = N(nm, gk.key, 0.42, T('新建学科')); placeNear(cap); settle(80); }
         rebuild(false); renderLegend(); renderOverview(); updateReadout();
-        toast(gk.created ? '开辟了「' + esc(nm) + '」大陆' : '「' + esc(nm) + '」已在图上', 'plain', 2400);
+        toast(gk.created ? TF('开辟了「{0}」大陆', esc(nm)) : TF('「{0}」已在图上', esc(nm)), 'plain', 2400);
         return gk;
       }
       function subOpened(k, s) { return nodes.some(n => !n.frontier && n.disc === k && n.sub === s); }
       function foundSub(dn, sn) {                                  // 开辟一片"州"（二级学科；父大陆没开就先开）
         const gk = getDiscKey(dn);
-        if (gk.created) { const cap = N(dn, gk.key, 0.42, '新建学科'); placeNear(cap); }
-        if (subOpened(gk.key, sn)) { toast('「' + esc(sn) + '」已在图上', 'plain', 2000); return; }
-        const c = N(sn, gk.key, 0.4, '开辟二级学科'); c.sub = sn; placeNear(c);
+        if (gk.created) { const cap = N(dn, gk.key, 0.42, T('新建学科')); placeNear(cap); }
+        if (subOpened(gk.key, sn)) { toast(TF('「{0}」已在图上', esc(sn)), 'plain', 2000); return; }
+        const c = N(sn, gk.key, 0.4, T('开辟二级学科')); c.sub = sn; placeNear(c);
         settle(120); rebuild(false); renderLegend(); renderOverview(); updateReadout();
-        toast('在「' + esc(dn) + '」开辟了「' + esc(sn) + '」州', 'plain', 2400);
+        toast(TF('在「{0}」开辟了「{1}」州', esc(dn), esc(sn)), 'plain', 2400);
       }
       function renderOverview() {
         const ov = byId('overview'); if (!ov) return;
@@ -994,13 +1065,13 @@ window.__ModuleLoader__.load({
           const mk = k && matchDiscByName(nm);
           const subs = [...new Set([...libSubs(nm), ...(mk ? subsOf(mk) : [])])];
           const newsub = ovSubFor === nm
-            ? '<div class="ov-newsub"><input class="chipin" id="ovSubNew" data-d="' + esc(nm) + '" placeholder="二级学科名，回车开辟（Esc 取消）"></div>'
-            : '<div class="ov-newsub"><button class="ov-addsub" data-add="' + esc(nm) + '">＋ 开辟州</button></div>';
+            ? '<div class="ov-newsub"><input class="chipin" id="ovSubNew" data-d="' + esc(nm) + '" placeholder="' + T('二级学科名，回车开辟（Esc 取消）') + '"></div>'
+            : '<div class="ov-newsub"><button class="ov-addsub" data-add="' + esc(nm) + '">' + T('＋ 开辟州') + '</button></div>';
           return '<div class="ov-item' + (opened ? '' : ' ov-off') + '" data-nm="' + esc(nm) + '" style="background:' + rgb(land) + ';color:' + ink + '">' +
-            '<div class="ov-name">' + esc(nm) + (opened ? '' : '<span class="ov-tag">未开辟</span>') + '</div>' +
+            '<div class="ov-name">' + esc(nm) + (opened ? '' : '<span class="ov-tag">' + T('未开辟') + '</span>') + '</div>' +
             (subs.length ? '<div class="ov-subs">' + subs.map(s => {
               const on = mk && subOpened(mk, s);                   // 二级学科也可点开辟：未开的带＋，已开的亮显
-              return '<span class="' + (on ? 'on' : '') + '" data-d="' + esc(nm) + '" data-s="' + esc(s) + '" title="' + (on ? '已在图上' : '点击开辟这片州') + '">' + (on ? '' : '＋ ') + esc(s) + '</span>';
+              return '<span class="' + (on ? 'on' : '') + '" data-d="' + esc(nm) + '" data-s="' + esc(s) + '" title="' + (on ? T('已在图上') : T('点击开辟这片州')) + '">' + (on ? '' : '＋ ') + esc(s) + '</span>';
             }).join('') + '</div>' : '') +
             newsub + '</div>';
         }).join('');
@@ -1031,10 +1102,11 @@ window.__ModuleLoader__.load({
       function endSub(slot) { return (slot === 'a' ? bp.target.aSub : bp.target.bSub) || ''; }
       function endChip(slot) {
         const nm = endName(slot), sub = endSub(slot), k = endKey(slot), dot = k ? DISC[k].city : 'rgba(120,122,128,.55)';
-        const label = nm ? esc(nm) + (sub ? '·' + esc(sub) : '') : '选一端';
+        const label = nm ? esc(nm) + (sub ? '·' + esc(sub) : '') : T('选一端');
         return '<span class="endchip' + (bp.editEnd === slot ? ' open' : '') + '" data-end="' + slot + '" style="--dot:' + dot + '">' +
           '<i class="ec-dot" style="background:' + dot + '"></i>' + label + ' ▾</span>';
       }
+      // (endChip 的 label 用 T('选一端') 兜底,见下)
       function chooserHTML(slot) {
         // 两步选端：① 选 1 级学科（大陆）② 可选细到 2 级学科（州）。2 级来自总库 ∪ 图上实有。
         const cur = endName(slot), curSub = endSub(slot);
@@ -1042,13 +1114,13 @@ window.__ModuleLoader__.load({
         discChoices().forEach(it => {
           inner += '<span class="type discChip' + (cur === it.name ? ' sel' : '') + '" data-pick="' + esc(it.name) + '">' + esc(it.name) + '</span>';
         });
-        let html = '<div class="endchooser">' + inner + '<input class="chipin" id="endnew" placeholder="＋新学科，回车"></div>';
+        let html = '<div class="endchooser">' + inner + '<input class="chipin" id="endnew" placeholder="' + T('＋新学科，回车') + '"></div>';
         if (cur) {
           const k = matchDiscByName(cur);
           const subs = [...new Set([...libSubs(cur), ...(k ? subsOf(k) : [])])];
           if (subs.length) {
-            html += '<div class="endchooser"><span class="pk-sub" style="margin:0;flex-basis:100%">细到 2 级学科（可选，连接点会落到那片州）</span>' +
-              '<span class="type subChip' + (!curSub ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="">' + esc(cur) + '·大陆中央</span>' +
+            html += '<div class="endchooser"><span class="pk-sub" style="margin:0;flex-basis:100%">' + T('细到 2 级学科（可选，连接点会落到那片州）') + '</span>' +
+              '<span class="type subChip' + (!curSub ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="">' + esc(cur) + T('·大陆中央') + '</span>' +
               subs.map(s => '<span class="type subChip' + (curSub === s ? ' sel' : '') + '" data-pick="' + esc(cur) + '" data-sub="' + esc(s) + '">' + esc(s) + '</span>').join('') + '</div>';
           }
         }
@@ -1057,20 +1129,20 @@ window.__ModuleLoader__.load({
       function renderPanel() {
         if (!bp) return;
         const t = bp.target, links = t.links || [], n = links.length;
-        let html = '<div class="pk-head">桥 · ' + n + ' 条链接' + (bp.isDraft ? ' <span style="opacity:.6">· 预备，选好两端即安置</span>' : '') + '</div>';
+        let html = '<div class="pk-head">' + T('桥 · ') + n + T(' 条链接') + (bp.isDraft ? ' <span style="opacity:.6">' + T('· 预备，选好两端即安置') + '</span>' : '') + '</div>';
         html += '<div class="bp-ends">' + endChip('a') + '<span class="bp-arrow">⟷</span>' + endChip('b') + '</div>';
         if (bp.editEnd) html += chooserHTML(bp.editEnd);
-        html += '<div class="pk-sub">链接　<span style="opacity:.6">让这两块连起来的那些话</span></div><div class="bp-links">';
-        if (!n) html += '<div class="bp-empty">还没有链接。加一句"为什么连"，或从抽卡/记一笔收进来。</div>';
+        html += '<div class="pk-sub">' + T('链接') + '　<span style="opacity:.6">' + T('让这两块连起来的那些话') + '</span></div><div class="bp-links">';
+        if (!n) html += '<div class="bp-empty">' + T('还没有链接。加一句"为什么连"，或从抽卡/记一笔收进来。') + '</div>';
         links.forEach(l => {
           const open = bp.openLink === l.id;
           html += '<div class="bp-link' + (open ? ' open' : '') + '" data-link="' + l.id + '">' +
-            '<div class="bp-lrow">' + linkIcon(l.kind) + '<span class="bp-ltext">' + esc(short(l.text || '（空）', 30)) + '</span><span class="bp-lx" data-del="' + l.id + '">×</span></div>' +
-            (open ? '<div class="bp-ldetail">' + esc(l.text || '（空）') + (l.kind === 'note' ? '<button class="bp-back" data-back="' + l.id + '">↩ 回到记一笔</button>' : '') + '</div>' : '') +
+            '<div class="bp-lrow">' + linkIcon(l.kind) + '<span class="bp-ltext">' + esc(short(l.text || T('（空）'), 30)) + '</span><span class="bp-lx" data-del="' + l.id + '">×</span></div>' +
+            (open ? '<div class="bp-ldetail">' + esc(l.text || T('（空）')) + (l.kind === 'note' ? '<button class="bp-back" data-back="' + l.id + '">' + T('↩ 回到记一笔') + '</button>' : '') + '</div>' : '') +
             '</div>';
         });
-        html += '</div><div class="bp-add"><input class="chipin" id="bpAdd" placeholder="＋手动加一句：为什么连？"><button class="mini" id="bpAddGo">加</button></div>';
-        html += '<div class="pk-actions"><button class="btn ghost" id="bpDel">删除桥</button><button class="btn ghost" id="bpClose">关闭</button></div>';
+        html += '</div><div class="bp-add"><input class="chipin" id="bpAdd" placeholder="' + T('＋手动加一句：为什么连？') + '"><button class="mini" id="bpAddGo">' + T('加') + '</button></div>';
+        html += '<div class="pk-actions"><button class="btn ghost" id="bpDel">' + T('删除桥') + '</button><button class="btn ghost" id="bpClose">' + T('关闭') + '</button></div>';
         bpanel.innerHTML = html;
         bpanel.querySelectorAll('.endchip').forEach(el => el.onclick = () => { bp.editEnd = bp.editEnd === el.dataset.end ? null : el.dataset.end; renderPanel(); });
         bpanel.querySelectorAll('.endchooser .type').forEach(el => el.onclick = () =>
@@ -1086,8 +1158,8 @@ window.__ModuleLoader__.load({
       function pickEnd(slot, name, sub, keepOpen) {
         sub = sub || '';
         const gk = getDiscKey(name);
-        if (gk.created) { const cap = N(name, gk.key, 0.4, '桥端新辟'); placeNear(cap); }
-        if (sub && !subOpened(gk.key, sub)) { const c = N(sub, gk.key, 0.4, '桥端新辟'); c.sub = sub; placeNear(c); } // 选到州 → 州也开辟
+        if (gk.created) { const cap = N(name, gk.key, 0.4, T('桥端新辟')); placeNear(cap); }
+        if (sub && !subOpened(gk.key, sub)) { const c = N(sub, gk.key, 0.4, T('桥端新辟')); c.sub = sub; placeNear(c); } // 选到州 → 州也开辟
         if (gk.created || sub) settle(80);
         if (bp.isDraft) {
           if (slot === 'a') { bp.target.aName = DISC[gk.key].name; bp.target.aSub = sub; }
@@ -1107,7 +1179,7 @@ window.__ModuleLoader__.load({
           const b = commitBridge(bp.target.links, ka, kb, null, bp.target.aSub, bp.target.bSub);
           bp.target = b; bp.isDraft = false;
           if (!REDUCE) flare(b.x, b.y); if (panable()) { camX = b.x - W / 2; clampCam(); }
-          toast('桥已安置 —— <b>' + esc(DISC[ka].name) + '</b> ⟷ <b>' + esc(DISC[kb].name) + '</b>', '', 2600);
+          toast(T('桥已安置 —— ') + '<b>' + esc(DISC[ka].name) + '</b> ⟷ <b>' + esc(DISC[kb].name) + '</b>', '', 2600);
         }
       }
       function commitBridge(links, ka, kb, except, aSub, bSub) {          // 同两端已有桥 → 并链接；否则新建
@@ -1186,7 +1258,7 @@ window.__ModuleLoader__.load({
         injectStyle();
         var host = ref.current;
         if (!host) return;
-        host.innerHTML = BODY_HTML;               // 原型 body 结构一次性写入
+        host.innerHTML = bodyHtml();              // 原型 body 结构一次性写入(带当前语言)
         var cleanup = runAtlas(host);             // 脚本在此容器作用域内运行
         return function () {
           try { if (typeof cleanup === 'function') cleanup(); } catch (e) { }
@@ -1234,7 +1306,7 @@ window.__ModuleLoader__.load({
       return h('div', { style: overlayWrap }, [
         h('div', { key: 'panel', style: fullPanel }, [
           h('button', {
-          key: 'x', style: closeBtn, title: '退出知识疆域', onClick: function () {
+          key: 'x', style: closeBtn, title: T('退出知识疆域'), onClick: function () {
             setOpen(false);
             try { window.dispatchEvent(new CustomEvent('pace-popup:atlas:closed')); } catch (e) { } // 通知浮窗恢复
           },
@@ -1265,6 +1337,8 @@ window.__ModuleLoader__.load({
       //   rpcCall('/atlas','getMap',{sessionId}) / 'compileSession' / 'connect' / 'createConcept'。
       rpcCall = function (channel, endpoint, payload) { return ctx.connection.rpc.call(channel, endpoint, payload || {}); };
       void rpcCall;
+      // 双语:运行时取 dsh 全局 locale 服务(ctx.get 不需 inject,缺席=恒中文)。
+      getLoc = function () { try { return ctx.get ? ctx.get('locale') : null; } catch (e) { return null; } };
       // 只有 shell.overlay 槽存在时才挂(headless/无此槽的装配天然跳过)。
       ctx.slots.inject('shell.overlay', function () {
         return ctx.slots.register({ name: 'shell.overlay', id: 'atlas', order: 12 }, AtlasGate);

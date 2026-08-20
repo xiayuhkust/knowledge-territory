@@ -31,6 +31,7 @@ The last step — deciding that two things connect — always stays with you. No
 
 ## Design rules
 
+- **Bilingual UI.** Every tool follows dsh's global language setting (Settings → General → Language, zh/en). Your own content — notes, discipline names, card text — stays in whatever language you wrote it.
 - **AI proposes, you connect.** AI-guessed bridge ends are proposals; nothing lands on the map until you confirm it.
 - **The session log is never written.** Every plugin moves data over its own in-memory Connection RPC channel.
 - **Zero build.** Hand-written client factories; `react` / `slots` / `connection` are platform externals.
