@@ -233,10 +233,10 @@ export function apply(ctx, config = {}) {
     }
   }, { authority: 'loopback' }), 'atlas rpc channel')
 
-  // 观察对话:攒最近上下文,供 compileSession 抽取(顺便可探真实模型,同 crosslens)
+  // 观察对话:攒最近上下文,供 compileSession 抽取(事件形状照 crosslens/seams 标定)
   ctx.on('session/event', (session, event) => {
-    if (event.type === 'assistant/message') pushGist(session.id, gistOf(event))
-    else if (event.type === 'user/message') pushGist(session.id, userTextOf(event))
+    if (event.type === 'assistant/message') { const s = gistOf(event); if (s) pushGist(session.id, 'AI:' + s) }
+    else if (event.type === 'user/message') { const s = userTextOf(event); if (s) pushGist(session.id, '用户:' + s) }
   })
   ctx.on('session/disposed', (session) => { recents.delete(session.id) })
 }
@@ -252,8 +252,14 @@ const gistOf = (event) => {
   const t = typeof m?.content === 'string' ? m.content : (m?.content?.map?.((p) => p.text || '').join('') || '')
   return String(t || '').slice(0, 240)
 }
+// user/message 的文本在 data **顶层**(data.text / data.content),不是 data.message——
+// 形状照 crosslens/seams(2026-08-17 dev profile 标定);合成来源(plugin/goal 等)不算对话。
 const userTextOf = (event) => {
-  const m = event.data?.message
-  const t = typeof m?.content === 'string' ? m.content : (m?.content?.map?.((p) => p.text || '').join('') || '')
-  return String(t || '').slice(0, 240)
+  const d = event.data
+  const kind = d?.source?.kind
+  if (kind && ['plugin', 'goal', 'agent', 'inject', 'compaction', 'system'].includes(kind)) return ''
+  let t = ''
+  if (typeof d?.text === 'string') t = d.text
+  else if (Array.isArray(d?.content)) t = d.content.filter((b) => b?.type === 'text').map((b) => b.text || '').join('')
+  return String(t || '').trim().replace(/\s+/g, ' ').slice(0, 240)
 }
