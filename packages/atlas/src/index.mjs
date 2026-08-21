@@ -65,6 +65,8 @@ export function apply(ctx, config = {}) {
   const classifyMod = () => (classifyModP ||= import('./classify-llm.mjs'))
   let mineModP = null
   const mineMod = () => (mineModP ||= import('./mine-llm.mjs'))
+  let ponderModP = null
+  const ponderMod = () => (ponderModP ||= import('./ponder-llm.mjs'))
 
   // 最近对话缓冲(留给 compileSession 的抽取用;纯内存)
   const recents = new Map()
@@ -97,6 +99,21 @@ export function apply(ctx, config = {}) {
           } catch (e) {
             ctx.logger?.warn?.(`atlas compileSession failed: ${e?.message || e}`)
             return ok({ bridges: [], gistCount: gists.length, note: 'llm-failed' })
+          }
+        }
+
+        // 探索模式:用户选好两端,请 LLM 想 3 条连接理由(B1 第三种玩法)。只出提议,收不收在用户。
+        case 'ponderBridge': {
+          const { discA, discB, subA, subB } = payload || {}
+          if (!discA || !discB) return err('ponderBridge 需要 discA + discB')
+          try {
+            const ponder = config.ponderer || (await ponderMod()).makePonderer(ctx, { ...cfg })
+            const ideas = await ponder({ discA, discB, subA, subB })
+            ctx.logger?.info?.(`atlas ponderBridge: ${discA}⟷${discB} → ${ideas.length} ideas`)
+            return ok({ ideas })
+          } catch (e) {
+            ctx.logger?.warn?.(`atlas ponderBridge failed: ${e?.message || e}`)
+            return ok({ ideas: [], note: 'llm-failed' })
           }
         }
 

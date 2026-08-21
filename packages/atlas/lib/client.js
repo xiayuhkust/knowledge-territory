@@ -107,6 +107,12 @@ window.__ModuleLoader__.load({
       '从对话里提炼了 {0} 座候选桥 —— 在左栏等你安置': 'Found {0} candidate bridge(s) in the chat — waiting in the left rail',
       '这轮对话里没提炼出新桥（可忽略）': 'No new bridges from this chat (ignorable)',
       '提炼服务开小差了（可忽略），稍后再试': 'The mining service hiccuped (ignorable) — try again later',
+      // —— 探索模式(请 AI 想理由)——
+      '✨ 请 AI 想理由': '✨ Ask AI for a reason',
+      '在想…': 'Thinking…',
+      '换一批': 'Another batch',
+      'AI 的提议 · 点一条收进链接': "AI's ideas · click one to add as a link",
+      '这次没想出来（可忽略）': "Couldn't come up with any this time (ignorable)",
       // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
       //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
       '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
@@ -353,6 +359,9 @@ window.__ModuleLoader__.load({
   border-radius:7px;font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--sans)}
 .dsh-atlas-root .bp-back:hover{border-color:var(--gold);color:var(--ink)}
 .dsh-atlas-root .bp-add{display:flex;gap:6px;align-items:center;margin-bottom:10px}
+.dsh-atlas-root .bp-ponder{margin-bottom:10px}
+.dsh-atlas-root .bp-idea{border:1px dashed var(--hair);border-radius:9px;padding:7px 10px;margin-bottom:6px;font-size:12px;line-height:1.5;color:var(--ink-dim);cursor:pointer}
+.dsh-atlas-root .bp-idea:hover{border-color:var(--cta);border-style:solid;color:var(--ink)}
 .dsh-atlas-root .bp-add .chipin{flex:1;width:auto}
 /* 分享/导出预览（隐私闸：全部内容尽收眼底再确认） */
 .dsh-atlas-root .ex-stats{font-family:var(--mono);font-size:12px;color:var(--ink-dim);margin-bottom:2px}
@@ -1031,7 +1040,7 @@ window.__ModuleLoader__.load({
       // 一座桥可承载多条链接(菱形里的数字=链接数)；同两端的卡/笔记并进同一座桥。
       function sameEnds(b, ka, kb) { return (b.aKey === ka && b.bKey === kb) || (b.aKey === kb && b.bKey === ka); }
       function findPlaced(ka, kb, except) { return bridges.find(b => b !== except && sameEnds(b, ka, kb)); }
-      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : kind === 'session' ? '💬' : '·'; }
+      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : kind === 'session' ? '💬' : kind === 'ai' ? '✨' : '·'; }
       function newLink(kind, text, ref) { return { id: 'l' + (++bseq), kind: kind || 'manual', text: text || '', ref: ref || null }; }
       function ingestBridge(raw) {          // 恢复：后端已安置的桥（addNote 落库），按两端并成一座、收集链接
         if (!raw.discA || !raw.discB) return null;
@@ -1587,7 +1596,18 @@ ${cHtml}
             (open ? '<div class="bp-ldetail">' + esc(l.text || T('（空）')) + (l.kind === 'note' ? '<button class="bp-back" data-back="' + l.id + '">' + T('↩ 回到记一笔') + '</button>' : '') + '</div>' : '') +
             '</div>';
         });
-        html += '</div><div class="bp-add"><input class="chipin" id="bpAdd" placeholder="' + T('＋手动加一句：为什么连？') + '"><button class="mini" id="bpAddGo">' + T('加') + '</button></div>';
+        html += '</div>';
+        // 探索模式:两端齐了才给「请 AI 想理由」;提议是虚线卡,点一条收进链接,可换一批
+        if (endKey('a') && endKey('b') && endKey('a') !== endKey('b')) {
+          html += '<div class="bp-ponder">';
+          if (bp.ideas && bp.ideas.length) {
+            html += '<div class="pk-sub" style="margin-top:0">' + T('AI 的提议 · 点一条收进链接') + '</div>';
+            bp.ideas.forEach((idea, i) => { html += '<div class="bp-idea" data-idea="' + i + '">✨ ' + esc(idea) + '</div>'; });
+          }
+          html += '<button class="mini" id="bpPonder"' + (bp.pondering ? ' disabled' : '') + '>' +
+            (bp.pondering ? T('在想…') : (bp.ideas && bp.ideas.length ? T('换一批') : T('✨ 请 AI 想理由'))) + '</button></div>';
+        }
+        html += '<div class="bp-add"><input class="chipin" id="bpAdd" placeholder="' + T('＋手动加一句：为什么连？') + '"><button class="mini" id="bpAddGo">' + T('加') + '</button></div>';
         html += '<div class="pk-actions"><button class="btn ghost" id="bpDel">' + T('删除桥') + '</button><button class="btn ghost" id="bpClose">' + T('关闭') + '</button></div>';
         bpanel.innerHTML = html;
         bpanel.querySelectorAll('.endchip').forEach(el => el.onclick = () => { bp.editEnd = bp.editEnd === el.dataset.end ? null : el.dataset.end; renderPanel(); });
@@ -1603,9 +1623,31 @@ ${cHtml}
           commitAfterEdit(); renderPanel();
         });
         bpanel.querySelectorAll('.bp-back').forEach(el => el.onclick = () => backToJiyibi(t.links.find(l => l.id === el.dataset.back)));
+        const pd = byId('bpPonder'); if (pd) pd.onclick = ponderNow;
+        bpanel.querySelectorAll('.bp-idea').forEach(el => el.onclick = () => {
+          const i = +el.dataset.idea, idea = bp.ideas && bp.ideas[i]; if (!idea) return;
+          bp.ideas.splice(i, 1);
+          t.links.push(newLink('ai', idea)); commitAfterEdit(); renderPanel();   // 收进链接(kind=ai ✨),已安置桥即刻落库
+        });
         const ag = byId('bpAddGo'); if (ag) ag.onclick = () => { const inp = byId('bpAdd'), v = inp && inp.value.trim(); if (v) { t.links.push(newLink('manual', v)); commitAfterEdit(); renderPanel(); } };
         byId('bpDel').onclick = deleteBridge; byId('bpClose').onclick = closePanel;
         bpanel.classList.add('show');
+      }
+      // 探索模式:两端选好后请 LLM 想 3 条理由(只提议;收哪条在用户,面板关了提议就散)
+      function ponderNow() {
+        if (!bp || bp.pondering || !rpcCall) return;
+        const nmA = endName('a'), nmB = endName('b'); if (!nmA || !nmB) return;
+        bp.pondering = true; renderPanel();
+        Promise.resolve(rpcCall('/atlas', 'ponderBridge', { discA: nmA, discB: nmB, subA: endSub('a'), subB: endSub('b') }))
+          .then(r => {
+            if (!bp) return;
+            const ideas = (r && r.ok && r.value && Array.isArray(r.value.ideas)) ? r.value.ideas : [];
+            const seen = new Set((bp.target.links || []).map(l => l.text));   // 已收进链接的不再提
+            bp.ideas = ideas.filter(s => s && !seen.has(s));
+            if (!bp.ideas.length) toast(T('这次没想出来（可忽略）'), 'plain', 2400);
+          })
+          .catch(() => { if (bp) toast(T('这次没想出来（可忽略）'), 'plain', 2400); })
+          .finally(() => { if (bp) { bp.pondering = false; renderPanel(); } });
       }
       function pickEnd(slot, name, sub, keepOpen) {
         sub = sub || '';
@@ -1621,6 +1663,7 @@ ${cHtml}
           else { bp.target.bKey = gk.key; bp.target.discB = DISC[gk.key].name; bp.target.bSub = sub; }
           placeBridge(bp.target); persistNew(bp.target);
         }
+        bp.ideas = null;                                      // 换了端,旧提议作废
         bp.editEnd = keepOpen ? slot : null; tryCommit();
         rebuild(false); renderRail(); renderOverview(); renderLegend(); renderPanel();
       }
