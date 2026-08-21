@@ -10,9 +10,12 @@ A living knowledge map for DeepSeek Harness (dsh). Disciplines are continents, s
 
 ## How the territory grows
 
-- **A shared discipline library.** One catalog of 14 level-1 disciplines (each with its level-2 sub-disciplines) is shared between the map and the card-draw tool. The *学科总览* (discipline overview) panel shows the whole library as color blocks; unopened ones are dimmed — click one to open it as a continent, click a sub-discipline to open it as a state inside its continent. You can also add your own.
-- **Bridges and links.** A bridge is one line between two disciplines. A link is one piece of evidence on that bridge — a card's hook sentence, a note, or a line you type by hand. The diamond on a bridge shows its link count; click it to read the links, edit them, or re-point either end (the two ends are clickable chips).
+- **A shared discipline library.** One catalog of 29 level-1 disciplines — grouped into five branches after Wikipedia's *Outline of academic disciplines*, each with its level-2 sub-disciplines — is shared between the map, the card-draw tool, and the AI's classification fallback. The *学科总览* (discipline overview) panel shows the whole library as color blocks; unopened ones are dimmed — click one to open it as a continent, click a sub-discipline to open it as a state inside its continent. You can also add your own.
+- **Bridges and links.** A bridge is one line between two disciplines. A link is one piece of evidence on that bridge — a card's hook sentence, a note, a line mined from a chat, an AI-suggested reason, or a line you type by hand. The diamond on a bridge shows its link count; click it to read the links, edit them, or re-point either end (the two ends are clickable chips).
 - **Feeders.** Draw a cross-discipline card (跨学科抽卡) or jot a note (记一笔) and send it to the territory. It lands in the left rail as a pending connection; the AI guesses the two ends, you confirm or change them, then place it. Cards keep their one-line hook on the bridge; notes keep a back-reference, so a link can jump back to the original note.
+- **Bridges from chat.** The *✦ 从对话找桥* button in the left rail reads the recent turns of your current session (an in-memory buffer; the session log is never touched) and proposes up to three candidate bridges, each with a one-line reason anchored in what was actually said. They queue as pending connections — same placement flow as everything else.
+- **Exploration.** Open any bridge, settle its two ends, and click *✨ Ask AI for a reason*: the AI offers three concrete angles (method transfer, shared structure, history, a case). Click one to keep it as a link; unclicked suggestions vanish when the panel closes.
+- **Sharing.** The *分享* button previews everything that would leave your machine, then exports two artifacts: a self-contained web page (interactive snapshot, every bridge's links, an embedded JSON backup — no server needed) and a tall image (map on top, bridge journal below) sized for chat apps.
 - **The header readout** counts the links you've lit, the discipline pairs you've bridged, and the connections still waiting for you.
 
 The last step — deciding that two things connect — always stays with you. Nothing lands on the map until you place it.
@@ -32,6 +35,7 @@ The last step — deciding that two things connect — always stays with you. No
 ## Design rules
 
 - **Bilingual UI.** Every tool follows dsh's global language setting (Settings → General → Language, zh/en). Your own content — notes, discipline names, card text — stays in whatever language you wrote it.
+- **Your territory is a local file.** Everything persists to `~/.dsh/atlas/territory.json` on your machine and survives restarts; the exported web page doubles as a readable backup.
 - **AI proposes, you connect.** AI-guessed bridge ends are proposals; nothing lands on the map until you confirm it.
 - **The session log is never written.** Every plugin moves data over its own in-memory Connection RPC channel.
 - **Zero build.** Hand-written client factories; `react` / `slots` / `connection` are platform externals.
