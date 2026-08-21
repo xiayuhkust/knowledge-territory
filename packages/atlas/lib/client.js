@@ -113,6 +113,15 @@ window.__ModuleLoader__.load({
       '换一批': 'Another batch',
       'AI 的提议 · 点一条收进链接': "AI's ideas · click one to add as a link",
       '这次没想出来（可忽略）': "Couldn't come up with any this time (ignorable)",
+      // —— 游览(文件即协议)——
+      '游览': 'Visit',
+      '游览疆域 · ': 'Visiting · ',
+      '只读游览。看中的理由点「收进我的疆域」,它会进左栏预备桥,安置仍由你完成。': 'Read-only visit. Click "Keep into my territory" on any reason you like — it joins the pending queue; placing is still yours.',
+      '这不是知识疆域的分享文件': 'Not a Knowledge Territory share file',
+      '读取失败（可忽略）': 'Could not read the file (ignorable)',
+      '收进我的疆域': 'Keep into my territory',
+      '已收 ✓': 'Kept ✓',
+      '（这份疆域还没有桥）': '(this territory has no bridges yet)',
       // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
       //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
       '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
@@ -401,6 +410,7 @@ window.__ModuleLoader__.load({
       <div class="stat"><b id="rConn">—</b><span>${T('你点亮的链接')}</span></div>
       <div class="stat bridge"><b id="rBridge">—</b><span>${T('打通的学科对')}</span></div>
       <div class="stat"><b id="rFront">—</b><span>${T('待安置的连接')}</span></div>
+      <button id="visitBtn" class="mini" style="align-self:center">${T('游览')}</button>
       <button id="shareBtn" class="mini" style="align-self:center">${T('分享')}</button>
     </div>
   </header>
@@ -1040,7 +1050,7 @@ window.__ModuleLoader__.load({
       // 一座桥可承载多条链接(菱形里的数字=链接数)；同两端的卡/笔记并进同一座桥。
       function sameEnds(b, ka, kb) { return (b.aKey === ka && b.bKey === kb) || (b.aKey === kb && b.bKey === ka); }
       function findPlaced(ka, kb, except) { return bridges.find(b => b !== except && sameEnds(b, ka, kb)); }
-      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : kind === 'session' ? '💬' : kind === 'ai' ? '✨' : '·'; }
+      function linkIcon(kind) { return kind === 'card' ? '🎲' : kind === 'note' ? '✍' : kind === 'session' ? '💬' : kind === 'ai' ? '✨' : kind === 'community' ? '🤝' : '·'; }
       function newLink(kind, text, ref) { return { id: 'l' + (++bseq), kind: kind || 'manual', text: text || '', ref: ref || null }; }
       function ingestBridge(raw) {          // 恢复：后端已安置的桥（addNote 落库），按两端并成一座、收集链接
         if (!raw.discA || !raw.discB) return null;
@@ -1090,7 +1100,7 @@ window.__ModuleLoader__.load({
       function draftTitle(d) { const t = d.links && d.links[0] && d.links[0].text; return t ? short(t, 14) : T('手动连接'); }
       function addDraft(d) {
         const drafts = getDrafts(), id = 'd' + (++bseq);
-        const draft = { id, links: d.links || [], aName: d.aName || '', bName: d.bName || '', why: '', classifying: false };
+        const draft = { id, links: d.links || [], aName: d.aName || '', bName: d.bName || '', aSub: d.aSub || '', bSub: d.bSub || '', why: '', classifying: false };
         drafts.push(draft); renderRail();
         if (rpcCall && draftText(draft) && !(draft.aName && draft.bName)) { draft.classifying = true; renderRail(); classifyDraft(draft); }
         if (!d.quiet) toast(d.empty ? T('空的<b>预备连接</b>已加到左栏 —— 点它选两端') : T('已加到左栏<b>预备桥</b> —— 点它，选两端安置'), 'plain', 2600);
@@ -1345,7 +1355,7 @@ window.__ModuleLoader__.load({
         }).join('');
         // 内嵌 JSON = 疆域的可读备份（学科/城/桥用中文名原文，与 territory.json 同一套 key）
         const payload = {
-          app: 'knowledge-territory', exportedAt: new Date().toISOString(),
+          app: 'knowledge-territory', format: 'knowledge-territory/1', exportedAt: new Date().toISOString(),
           disciplines: order.map(k => DISC[k].name),
           cities: nodes.filter(n => !n.frontier).map(n => ({ label: n.label, disc: DISC[n.disc].name, sub: n.sub || '' })),
           bridges: bridges.map(b => ({ discA: b.discA, discB: b.discB, subA: b.aSub || '', subB: b.bSub || '', links: (b.links || []).map(l => ({ kind: l.kind, text: l.text || '' })) })),
@@ -1540,6 +1550,84 @@ ${cHtml}
         exModal.querySelector('#exHtml').onclick = doExportHtml;
       }
 
+      // ── 游览:文件即协议 v0——打开别人分享的疆域文件(.html/.json),只读浏览;
+      //    看中的理由「收进我的疆域」(kind=community,带出处),进预备桥队列,安置仍由用户完成。──
+      function parseTerritoryFile(text) {
+        let raw = String(text || '').trim(), json = null;
+        if (raw[0] === '{') json = raw;                                       // 直接是导出的 JSON
+        else { const m = raw.match(/<script type="application\/json" id="territory">([\s\S]*?)<\/script>/); if (m) json = m[1]; }  // 分享网页里内嵌的那份
+        if (!json) return null;
+        try {
+          const o = JSON.parse(json);
+          if (!o || o.app !== 'knowledge-territory') return null;             // format 字段缺省也容忍(早期导出)
+          return {
+            bridges: Array.isArray(o.bridges) ? o.bridges : [],
+            cities: Array.isArray(o.cities) ? o.cities : [],
+            disciplines: Array.isArray(o.disciplines) ? o.disciplines : [],
+            exportedAt: o.exportedAt || '',
+          };
+        } catch (e) { return null; }
+      }
+      const visitInput = document.createElement('input');
+      visitInput.type = 'file'; visitInput.accept = '.html,.htm,.json'; visitInput.style.display = 'none';
+      stage.appendChild(visitInput);
+      const visitModal = document.createElement('div'); visitModal.className = 'ov-modal'; stage.appendChild(visitModal);
+      visitModal.addEventListener('click', e => { if (e.target === visitModal) visitModal.classList.remove('show'); });
+      let visiting = null;                                                    // {data, fileName}
+      visitInput.onchange = () => {
+        const f = visitInput.files && visitInput.files[0]; visitInput.value = ''; if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          const data = parseTerritoryFile(rd.result);
+          if (!data) { toast(T('这不是知识疆域的分享文件'), 'plain', 2600); return; }
+          visiting = { data, fileName: f.name };
+          renderVisit(); visitModal.classList.add('show');
+        };
+        rd.onerror = () => toast(T('读取失败（可忽略）'), 'plain', 2400);
+        rd.readAsText(f);
+      };
+      function borrowedAlready(text) {                                        // 同一句已在我的草稿/桥上 → 不重复收
+        return getDrafts().some(d => (d.links || []).some(l => l.text === text)) ||
+          bridges.some(b => (b.links || []).some(l => l.text === text));
+      }
+      function renderVisit() {
+        if (!visiting) return;
+        const v = visiting.data;
+        const nLinks = v.bridges.reduce((s, b) => s + (b.links ? b.links.length : 0), 0);
+        let html = '<div class="ov-card"><div class="rl-row" style="margin-bottom:6px"><h3>' + T('游览疆域 · ') + esc(short(visiting.fileName, 24)) + '</h3><button class="mini" id="vClose">' + T('关闭') + '</button></div>' +
+          '<div class="ov-sub-h">' + T('只读游览。看中的理由点「收进我的疆域」,它会进左栏预备桥,安置仍由你完成。') + '</div>' +
+          '<div class="ex-stats">' + TF('{0} 块大陆 · {1} 座城 · {2} 座桥 · {3} 条链接', v.disciplines.length, v.cities.length, v.bridges.length, nLinks) + '</div>';
+        html += '<div class="ex-sec">' + T('桥 · 连接的理由') + '</div>';
+        if (!v.bridges.length) html += '<div class="bp-empty">' + T('（这份疆域还没有桥）') + '</div>';
+        v.bridges.forEach((b, bi) => {
+          html += '<div class="ex-b"><b>' + esc(dN(b.discA)) + (b.subA ? '·' + esc(dN(b.subA)) : '') + '</b> ⟷ <b>' + esc(dN(b.discB)) + (b.subB ? '·' + esc(dN(b.subB)) : '') + '</b>' +
+            (b.links || []).map((l, li) => {
+              if (!l || !l.text) return '';
+              const got = borrowedAlready(l.text);
+              return '<div class="ex-l">' + linkIcon(l.kind) + ' ' + esc(l.text) +
+                ' <button class="mini v-keep" data-b="' + bi + '" data-l="' + li + '"' + (got ? ' disabled' : '') + '>' + (got ? T('已收 ✓') : T('收进我的疆域')) + '</button></div>';
+            }).join('') + '</div>';
+        });
+        html += '<div class="ex-sec">' + T('大陆与城') + '</div>';
+        v.disciplines.forEach(dn => {
+          const cs = v.cities.filter(c => c && c.disc === dn).map(c => esc(dN(c.label)));
+          html += '<div class="ex-c"><b>' + esc(dN(dn)) + '</b>　' + cs.join('、') + '</div>';
+        });
+        html += '</div>';
+        visitModal.innerHTML = html;
+        visitModal.querySelector('#vClose').onclick = () => visitModal.classList.remove('show');
+        visitModal.querySelectorAll('.v-keep').forEach(el => el.onclick = () => {
+          const b = v.bridges[+el.dataset.b], l = b && b.links && b.links[+el.dataset.l];
+          if (!b || !l || !l.text) return;
+          addDraft({                                                          // 借用=带出处的预备桥;两端/州预填,落子仍在用户
+            links: [newLink('community', l.text, { kind: 'community', file: visiting.fileName, exportedAt: v.exportedAt || '' })],
+            aName: b.discA || '', bName: b.discB || '', aSub: b.subA || '', bSub: b.subB || '', quiet: true,
+          });
+          el.disabled = true; el.textContent = T('已收 ✓');
+          toast(T('已加到左栏<b>预备桥</b> —— 点它，选两端安置'), 'plain', 2400);
+        });
+      }
+
       // ── 桥面板（bpanel）：一处看链接 + 改两端；点选两端即安置。替代原"安置"弹窗 ──
       const bpanel = document.createElement('div'); bpanel.className = 'picker bpanel'; stage.appendChild(bpanel);
       let bp = null;   // { target, isDraft, editEnd:null|'a'|'b', openLink:null }
@@ -1717,6 +1805,7 @@ ${cHtml}
       byId("newLink").onclick = () => openBridgePanel(addDraft({ links: [], empty: true }), true);  // 新建连接（空预备桥，直接开面板选两端）
       byId("shareBtn").onclick = openExport;                       // 分享：预览确认 → 自包含网页 / PNG
       byId("mineBtn").onclick = mineSession;                       // 从对话找桥（拉式进料，方案 a）
+      byId("visitBtn").onclick = () => visitInput.click();         // 游览：打开别人分享的疆域文件
       seed(); resize();
       nodes.forEach(n => {
         if (n.frontier) {
