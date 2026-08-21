@@ -106,6 +106,7 @@ window.__ModuleLoader__.load({
       '对话还太短，聊一会儿再来提炼': 'The conversation is still short — chat a bit more first',
       '从对话里提炼了 {0} 座候选桥 —— 在左栏等你安置': 'Found {0} candidate bridge(s) in the chat — waiting in the left rail',
       '这轮对话里没提炼出新桥（可忽略）': 'No new bridges from this chat (ignorable)',
+      '提炼服务开小差了（可忽略），稍后再试': 'The mining service hiccuped (ignorable) — try again later',
       // —— 学科总库显示名(1 级 + 2 级)。只作显示:存储/匹配/分类仍用中文名作 key,
       //    所以换语言不影响已存的桥;用户自建学科不在表里 → 原样显示。——
       '系统论': 'Systems Theory', '控制论': 'Cybernetics', '复杂系统': 'Complex Systems', '混沌理论': 'Chaos Theory', '反馈': 'Feedback',
@@ -1097,6 +1098,7 @@ window.__ModuleLoader__.load({
           .then(r => {
             const v = (r && r.ok && r.value) || {};
             if (v.note === 'too-short') { toast(T('对话还太短，聊一会儿再来提炼'), 'plain', 2600); return; }
+            if (v.note === 'llm-failed') { toast(T('提炼服务开小差了（可忽略），稍后再试'), 'plain', 2800); return; }   // 失败≠没料,分开说
             const found = Array.isArray(v.bridges) ? v.bridges : [];
             // 同一句 why 已在(草稿或已安置的链接里) → 不重复入队
             const dup = (t) => !!t && (getDrafts().some(d => (d.links || []).some(l => l.text === t)) ||

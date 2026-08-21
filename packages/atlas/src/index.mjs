@@ -92,9 +92,10 @@ export function apply(ctx, config = {}) {
           try {
             const mine = config.miner || (await mineMod()).makeMiner(ctx, { ...cfg })
             const found = await mine(gists, names)
+            ctx.logger?.info?.(`atlas compileSession: ${gists.length} gists → ${found.length} bridges`)
             return ok({ bridges: found, gistCount: gists.length })
           } catch (e) {
-            ctx.logger?.warn?.(`atlas compileSession: ${e?.message || e}`)
+            ctx.logger?.warn?.(`atlas compileSession failed: ${e?.message || e}`)
             return ok({ bridges: [], gistCount: gists.length, note: 'llm-failed' })
           }
         }
